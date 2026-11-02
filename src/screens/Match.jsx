@@ -1,0 +1,409 @@
+import { useEffect, useRef, useState } from 'react'
+import { api } from '../data'
+import { useLoad, useLiveUpdates, useTicker } from '../lib/hooks'
+import { useMember } from '../lib/member'
+import { useSchemaReady } from '../lib/schema'
+import { formatClock, nextState, phaseStart, remaining, scoreOf, shownElapsed, winGoals } from '../lib/clock'
+import { TEAM } from '../lib/teamsMeta'
+import { go } from '../lib/router'
+import PageHeader from '../components/PageHeader'
+import Avatar from '../components/Avatar'
+import Sheet from '../components/Sheet'
+import Icon from '../components/Icon'
+import NeedsUpdate from '../components/NeedsUpdate'
+import MvpVote from '../components/MvpVote'
+import Lineup from '../components/Lineup'
+import { readManaging, writeManaging } from '../lib/managing'
+import { celebrate } from '../components/Celebration'
+import { play } from '../lib/sound'
+
+const PHASE_LABEL = { regular: 'זמן משחק', extra: 'הארכה', golden: 'גול זהב' }
+
+// Short beep + vibration when the match changes phase or ends.
+function signal() {
+  try {
+    navigator.vibrate?.([200, 100, 200])
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.frequency.value = 880
+    gain.gain.setValueAtTime(0.3, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
+    osc.connect(gain).connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.6)
+  } catch {
+    // no sound on this phone
+  }
+}
+
+// Keeps the screen on while the manager runs the clock.
+function useWakeLock(on) {
+  useEffect(() => {
+    if (!on || !('wakeLock' in navigator)) return
+    let lock = null
+    let cancelled = false
+    const request = () =>
+      navigator.wakeLock.request('screen').then((l) => {
+        if (cancelled) l.release()
+        else lock = l
+      }, () => {})
+    const onVisible = () => document.visibilityState === 'visible' && request()
+    request()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      lock?.release()
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [on])
+}
+
+export default function Match({ id }) {
+  const ready = useSchemaReady()
+  if (ready === false) {
+    return (
+      <main className="page">
+        <PageHeader title="משחק" back="#/tonight" />
+        <NeedsUpdate />
+      </main>
+    )
+  }
+  return ready ? <MatchBody id={id} /> : <main className="page"><p className="center muted">טוען…</p></main>
+}
+
+function MatchBody({ id }) {
+  const member = useMember()
+  const { data: admin } = useLoad(() => api.getAdmin().catch(() => false), [])
+  const [managing, setManaging] = useState(() => readManaging() === id)
+  const [m, setM] = useState(null)
+  const [goals, setGoals] = useState([])
+  const [sheet, setSheet] = useState(null) // { kind: 'goal', team, scorer? } | { kind: 'menu' }
+  const saving = useRef(false)
+
+  const { data, error, reload } = useLoad(async () => {
+    const [match, goals, players] = await Promise.all([api.getMatch(id), api.listGoals(id), api.listPlayers()])
+    return { match, goals, players }
+  }, [id])
+  useLiveUpdates(reload)
+
+  useEffect(() => {
+    if (!data) return
+    setM(data.match)
+    setGoals([...data.goals].sort((x, y) => x.created_at.localeCompare(y.created_at)))
+  }, [data])
+
+  // Goals and whistles that happen while this screen is open, on every phone watching.
+  // What was already there when it opened is never celebrated again.
+  const seen = useRef(null) // { goals, status, running, phase }
+  useEffect(() => {
+    if (!m || !data) return
+    const now = { goals: goals.length, status: m.status, running: Boolean(m.running_since), phase: m.phase }
+    const was = seen.current
+    seen.current = now
+    if (!was) return
+    const players = Object.fromEntries(data.players.map((p) => [p.id, p]))
+    const goal = now.goals > was.goals
+    const won = now.status === 'finished' && was.status === 'live'
+    if (goal) {
+      const g = goals.at(-1)
+      celebrate({ kind: 'goal', team: g.team, player: players[g.scorer], score: scoreOf(goals) })
+    }
+    if (won) {
+      celebrate({ kind: 'win', team: m.winner, score: scoreOf(goals) }) // queued after the winning goal
+    } else if (!goal && now.running && !was.running) {
+      play(m.clock_ms === 0 ? 'kickoff' : 'whistle')
+    } else if (!goal && now.phase !== was.phase) {
+      play('whistle')
+    }
+  }, [m, goals, data])
+
+  const control = managing && member && m?.status === 'live'
+  useTicker(Boolean(m?.running_since))
+  useWakeLock(control && Boolean(m?.running_since))
+
+  const update = async (fields, opts) => {
+    setM((cur) => ({ ...cur, ...fields }))
+    try {
+      await api.updateMatch(id, fields, opts)
+    } finally {
+      reload()
+    }
+  }
+
+  // The manager's phone moves the match forward: end at the goal limit / time, extra time, golden goal.
+  useEffect(() => {
+    if (!control || saving.current || !m) return
+    const next = nextState(m, goals)
+    if (!next) return
+    saving.current = true
+    signal()
+    update(next, { onlyLive: true }).finally(() => (saving.current = false))
+  })
+
+  if (error && !data) return <main className="page"><p className="err center">אין חיבור כרגע.</p></main>
+  if (!data || !m) {
+    return (
+      <main className="page">
+        <PageHeader title="משחק" back="#/tonight" />
+        <p className="center muted">{data && !data.match ? 'המשחק לא נמצא (אולי בוטל).' : 'טוען…'}</p>
+      </main>
+    )
+  }
+
+  const byId = Object.fromEntries(data.players.map((p) => [p.id, p]))
+  const score = scoreOf(goals)
+  const running = Boolean(m.running_since)
+  const left = remaining(m)
+  const finished = m.status === 'finished'
+  const finalSeconds = running && left !== null && left <= 10_000
+  // Clock stopped exactly where extra time / golden goal begins: waiting for the manager to start it.
+  const waitingPhase = !finished && !running && m.phase !== 'regular' && m.clock_ms === phaseStart(m)
+
+  const now = () => new Date().toISOString()
+  const start = () => update({ running_since: now() })
+  const pause = () => update({ clock_ms: shownElapsed(m), running_since: null })
+
+  const addGoal = async (team, scorer, assist) => {
+    setSheet(null)
+    const goal = { match_id: id, team, scorer, assist, at_ms: shownElapsed(m) }
+    setGoals((g) => [...g, { ...goal, id: `tmp-${Date.now()}`, created_at: now() }])
+    navigator.vibrate?.(60)
+    try {
+      await api.addGoal(goal)
+    } finally {
+      reload()
+    }
+  }
+
+  const undo = async () => {
+    const lastGoal = goals.at(-1)
+    if (!lastGoal || !confirm('לבטל את הגול האחרון?')) return
+    setGoals((g) => g.slice(0, -1))
+    await api.deleteGoal(lastGoal.id)
+    // Undoing the deciding goal reopens the match (paused).
+    if (finished) await api.updateMatch(id, { status: 'live', winner: null, ended_at: null, running_since: null })
+    reload()
+  }
+
+  const endManually = (winner) => {
+    setSheet(null)
+    update({ status: 'finished', winner, clock_ms: shownElapsed(m), running_since: null, ended_at: now() }, { onlyLive: true })
+  }
+
+  const cancelMatch = async () => {
+    if (!confirm('לבטל את המשחק הזה לגמרי? הגולים שלו יימחקו.')) return
+    await api.deleteMatch(id)
+    writeManaging(null)
+    go('/tonight')
+  }
+
+  // A match that didn't really happen (a test, a mistake): admins remove it with its goals.
+  const deletePlayed = async () => {
+    if (!confirm(`למחוק את משחק ${m.num}? הוא והגולים שלו ייעלמו מהסטטיסטיקה.`)) return
+    try {
+      await api.deleteMatch(id)
+      go('/tonight')
+    } catch {
+      alert('המחיקה נכשלה')
+    }
+  }
+
+  const takeControl = () => {
+    writeManaging(id)
+    setManaging(true)
+  }
+
+  return (
+    <main className="page match-page">
+      <PageHeader
+        title={`משחק ${m.num}`}
+        back="#/tonight"
+        action={control && (
+          <button className="icon-btn" aria-label="אפשרויות" onClick={() => setSheet({ kind: 'menu' })}><Icon name="more" /></button>
+        )}
+      />
+
+      <FinalTicks on={control && finalSeconds} left={left} />
+      <div className={`clock-card${running ? ' running' : ''}${m.phase !== 'regular' ? ` phase-${m.phase}` : ''}${finalSeconds ? ' final-seconds' : ''}`}>
+        <span className="phase-pill">{finished ? 'הסתיים' : PHASE_LABEL[m.phase]}</span>
+        <div className="clock" dir="ltr">
+          {finished ? formatClock(m.clock_ms) : left === null ? formatClock(shownElapsed(m)) : formatClock(left)}
+        </div>
+        <span className="muted small">
+          {finished ? `שוחק ${formatClock(m.clock_ms)}` : m.phase === 'golden' ? 'הגול הבא מנצח' : winGoals(m) ? `ראשונה ל-${winGoals(m)} או סוף הזמן` : 'עד סוף הזמן'}
+        </span>
+      </div>
+
+      {waitingPhase && (
+        <div className="card phase-banner">
+          <strong>{m.phase === 'extra' ? '⏱️ תיקו! הארכה של 2 דקות' : '⚡ עדיין תיקו! גול זהב'}</strong>
+          <p className="muted">{m.phase === 'extra' ? `מי שמוביל בסוף ההארכה${winGoals(m) ? ` (או מגיע ל-${winGoals(m)})` : ''} מנצח.` : 'הגול הבא מנצח, בלי הגבלת זמן.'}</p>
+        </div>
+      )}
+
+      {finished && (
+        <div className={`card winner-card team-${m.winner}`}>
+          <Icon name="trophy" size={34} />
+          <strong>{TEAM[m.winner].name} ניצחו</strong>
+          <span className="winner-score" dir="ltr">{Math.max(score.a, score.b)} – {Math.min(score.a, score.b)}</span>
+        </div>
+      )}
+
+      <div className="score-row">
+        {['a', 'b'].map((side) => (
+          <button
+            key={side}
+            type="button"
+            className={`score-btn team-${side}${finished && m.winner === side ? ' won' : ''}`}
+            disabled={!control}
+            onClick={() => setSheet({ kind: 'goal', team: side })}
+            aria-label={`גול ל${TEAM[side].name}`}
+          >
+            <span className="score-team">{TEAM[side].name}</span>
+            <span key={score[side]} className={`score-num${score[side] ? ' bump' : ''}`}>{score[side]}</span>
+            <span className="score-faces">
+              {m[`team_${side}`].map((pid) => byId[pid] && <Avatar key={pid} player={byId[pid]} size={22} />)}
+            </span>
+            {control && <span className="score-tap">+ גול</span>}
+          </button>
+        ))}
+      </div>
+
+      {control && (
+        <div className="controls">
+          <button className="ctrl-btn" onClick={undo} disabled={goals.length === 0} aria-label="בטל גול אחרון">
+            <Icon name="undo" />
+            <span>בטל גול</span>
+          </button>
+          {running ? (
+            <button className="ctrl-main" onClick={pause} aria-label="עצור שעון"><Icon name="pause" size={34} /></button>
+          ) : (
+            <button className="ctrl-main go" onClick={start} aria-label="הפעל שעון"><Icon name="play" size={34} /></button>
+          )}
+          <button className="ctrl-btn" onClick={() => setSheet({ kind: 'menu' })} aria-label="אפשרויות">
+            <Icon name="more" />
+            <span>עוד</span>
+          </button>
+        </div>
+      )}
+      {control && !running && (
+        <p className="center muted small">
+          {m.clock_ms === 0 ? 'לחץ ▶ כדי להתחיל את השעון' : waitingPhase ? (m.phase === 'extra' ? 'לחץ ▶ להתחלת ההארכה' : 'לחץ ▶ להתחלת גול זהב') : 'השעון עצור'}
+        </p>
+      )}
+
+      {!finished && !control && member && (
+        <button className="btn" onClick={takeControl}>📋 אני מנהל המשחק</button>
+      )}
+      {!finished && member === false && <p className="note center">צפייה בלבד. כדי לנהל משחק, פתח את הקישור האישי שלך.</p>}
+
+      {finished && <MvpVote match={m} byId={byId} />}
+
+      {finished && member && (
+        <div className="stack">
+          <a className="btn big" href={`#/next/${m.id}`}>המשחק הבא: מי יוצא ומי נכנס <Icon name="forward" size={18} /></a>
+          {managing && <button className="link-btn" onClick={undo}>טעות? בטל את הגול האחרון</button>}
+        </div>
+      )}
+
+      <button className="btn ghost" onClick={() => setSheet({ kind: 'lineup' })}>⚽ הרכבים</button>
+      {finished && admin && <button className="link-btn danger" onClick={deletePlayed}>🗑️ מחק את המשחק (לא באמת שוחק)</button>}
+
+      {goals.length > 0 && (
+        <section className="stack">
+          <h2 className="section-title">גולים</h2>
+          <ol className="goal-list">
+            {[...goals].reverse().map((g) => (
+              <li key={g.id} className={`team-${g.team}`}>
+                <span className="goal-time" dir="ltr">{formatClock(g.at_ms)}</span>
+                <span className="goal-dot" />
+                <span className="goal-who">
+                  ⚽ {byId[g.scorer]?.name ?? 'לא ידוע'}
+                  {g.assist && byId[g.assist] && <small>בישול: {byId[g.assist].name}</small>}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {sheet?.kind === 'goal' && (
+        <GoalSheet
+          team={sheet.team}
+          players={m[`team_${sheet.team}`].map((pid) => byId[pid]).filter(Boolean)}
+          onClose={() => setSheet(null)}
+          onSave={addGoal}
+        />
+      )}
+      {sheet?.kind === 'lineup' && (
+        <Sheet title={`הרכבים, משחק ${m.num}`} onClose={() => setSheet(null)}>
+          <Lineup teamA={m.team_a} teamB={m.team_b} byId={byId} />
+        </Sheet>
+      )}
+      {sheet?.kind === 'menu' && (
+        <Sheet title="אפשרויות" onClose={() => setSheet(null)}>
+          <div className="stack">
+            <p className="muted">סיום ידני (למשל אם הפסקתם באמצע):</p>
+            <div className="row">
+              <button className="btn team-a-bg" onClick={() => endManually('a')}>{TEAM.a.name} ניצחו</button>
+              <button className="btn team-b-bg" onClick={() => endManually('b')}>{TEAM.b.name} ניצחו</button>
+            </div>
+            <button className="btn ghost" onClick={() => { writeManaging(null); setManaging(false); setSheet(null) }}>הפסק לנהל מהטלפון הזה</button>
+            <button className="link-btn danger" onClick={cancelMatch}>בטל את המשחק</button>
+          </div>
+        </Sheet>
+      )}
+    </main>
+  )
+}
+
+// A beep for each of the last 10 seconds, on the phone running the match.
+function FinalTicks({ on, left }) {
+  const second = on ? Math.ceil(left / 1000) : null
+  useEffect(() => {
+    if (second !== null && second > 0) play('tick')
+  }, [second])
+  return null
+}
+
+// Two steps: who scored, then who assisted (both optional).
+function GoalSheet({ team, players, onClose, onSave }) {
+  const [scorer, setScorer] = useState(undefined)
+
+  if (scorer === undefined) {
+    return (
+      <Sheet title={`גול ל${TEAM[team].name}! מי הבקיע?`} onClose={onClose}>
+        <div className="pick-grid">
+          {players.map((p) => (
+            <button key={p.id} className="pick" onClick={() => setScorer(p.id)}>
+              <Avatar player={p} size={48} />
+              <span>{p.name}</span>
+            </button>
+          ))}
+          <button className="pick unknown" onClick={() => onSave(team, null, null)}>
+            <span className="avatar" style={{ width: 48, height: 48, fontSize: 24 }}>❔</span>
+            <span>לא ידוע</span>
+          </button>
+        </div>
+      </Sheet>
+    )
+  }
+
+  return (
+    <Sheet title="מי בישל?" onClose={onClose}>
+      <div className="pick-grid">
+        {players.filter((p) => p.id !== scorer).map((p) => (
+          <button key={p.id} className="pick" onClick={() => onSave(team, scorer, p.id)}>
+            <Avatar player={p} size={48} />
+            <span>{p.name}</span>
+          </button>
+        ))}
+        <button className="pick unknown" onClick={() => onSave(team, scorer, null)}>
+          <span className="avatar" style={{ width: 48, height: 48, fontSize: 24 }}>🚫</span>
+          <span>בלי בישול</span>
+        </button>
+      </div>
+    </Sheet>
+  )
+}

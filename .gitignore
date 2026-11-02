@@ -1,0 +1,13 @@
+node_modules
+dist
+dev-dist
+.env.local
+.env
+.DS_Store
+.vercel
+.env*
+supabase/.temp
+!.env.example
+.claude/settings.local.json
+# one-off script with the real Saturday list (friends' names)
+supabase/add_players_*.sql

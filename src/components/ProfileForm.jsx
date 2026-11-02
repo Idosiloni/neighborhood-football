@@ -1,0 +1,88 @@
+import { useState } from 'react'
+import Avatar from './Avatar'
+import Icon from './Icon'
+import { EMOJIS, fromPositions, positionsOf } from '../lib/positions'
+import PositionPicker from './PositionPicker'
+import { photoToDataUrl } from '../lib/photo'
+import { hasPhoto } from '../lib/photos'
+
+// What a player fills in about himself: photo (camera or gallery), nickname, positions.
+// withName: the join screen also asks for his name.
+// photo stays undefined until he picks or removes one: saving then leaves his photo as it is.
+export default function ProfileForm({ initial, withName = false, submitLabel, onSubmit }) {
+  const [p, setP] = useState(() => ({ ...initial, positions: positionsOf(initial) }))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const set = (fields) => setP((prev) => ({ ...prev, ...fields }))
+
+  const pickPhoto = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      set({ photo: await photoToDataUrl(file) })
+    } catch {
+      setError('לא הצלחתי לקרוא את התמונה')
+    }
+  }
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (withName && !p.name?.trim()) return setError('צריך שם')
+    setBusy(true)
+    setError('')
+    try {
+      await onSubmit({ ...p, ...fromPositions(p.positions) })
+    } catch (err) {
+      setError(err.message)
+    }
+    setBusy(false)
+  }
+
+  return (
+    <form className="stack" onSubmit={submit}>
+      <div className={`profile-photo${hasPhoto(p) ? ' has-photo' : ''}`}>
+        <Avatar player={p} size={132} />
+        <div className="row">
+          <label className="btn small ghost">
+            <Icon name="camera" size={18} /> צלם
+            <input type="file" accept="image/*" capture="user" hidden onChange={pickPhoto} />
+          </label>
+          <label className="btn small ghost">
+            <Icon name="image" size={18} /> מהגלריה
+            <input type="file" accept="image/*" hidden onChange={pickPhoto} />
+          </label>
+        </div>
+        {hasPhoto(p) && <button type="button" className="link-btn" onClick={() => set({ photo: null })}>הסר תמונה</button>}
+      </div>
+
+      {withName && (
+        <label className="field">
+          שם (כמו שקוראים לך במגרש)
+          <input className="input" value={p.name ?? ''} onChange={(e) => set({ name: e.target.value })} maxLength={30} autoComplete="given-name" />
+        </label>
+      )}
+
+      <label className="field">
+        כינוי לכרטיס (לא חובה)
+        <input className="input" value={p.nickname ?? ''} onChange={(e) => set({ nickname: e.target.value })} maxLength={24} placeholder="למשל: התותח, הקיר, מסי של השכונה" />
+      </label>
+
+      {!hasPhoto(p) && (
+        <div className="field">
+          אימוג'י (אם אין תמונה)
+          <div className="emoji-grid emoji-scroll">
+            {EMOJIS.map((em) => (
+              <button type="button" key={em} className={p.emoji === em ? 'on' : ''} onClick={() => set({ emoji: em })}>{em}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <PositionPicker value={p.positions} onChange={(positions) => set({ positions })} />
+
+      {error && <p className="err">{error}</p>}
+      <button className="btn big" disabled={busy}>{busy ? 'שומר…' : submitLabel}</button>
+    </form>
+  )
+}
