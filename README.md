@@ -6,6 +6,12 @@ now open to any group. The app is in Hebrew (right-to-left).
 
 **Live:** https://neighborhood-football.vercel.app
 
+| Next game | Fair teams | Live match | Goal! | Player card |
+|:-:|:-:|:-:|:-:|:-:|
+| <img src="docs/screenshots/home.jpg" width="160" alt="Home: countdown to the next game and who's coming"> | <img src="docs/screenshots/teams.jpg" width="160" alt="Teams drawn on a pitch"> | <img src="docs/screenshots/match.jpg" width="160" alt="Live match clock and score"> | <img src="docs/screenshots/goal.jpg" width="160" alt="Goal celebration with confetti"> | <img src="docs/screenshots/card.jpg" width="160" alt="Player card with stats"> |
+
+<sub>Screenshots from the built-in demo, with made-up players.</sub>
+
 ## What it does
 
 - **Groups without accounts.** Anyone can open a group (name, day, time, place, rules) and becomes
