@@ -1,4 +1,4 @@
-# Data contract (schema version 4: groups with options)
+# Data contract (schema version 5: group options, match rules, draws)
 
 The browser app (src/data/supabaseApi.js) and the database (supabase/schema.sql) must agree on this.
 The demo (src/data/mockApi.js) mirrors it in localStorage. Tests: tests/sql.test.js (PGlite).
@@ -25,7 +25,10 @@ groups       id, name (1–40), join_code unique (6 chars a-z/2-9 without look-a
              win_goals 0–10 (3; 0 = time only), created_at,
              options jsonb ({}): the group's other settings, one object with known keys only, checked by
              trigger groups_check_options → private.options_valid (same rules: src/lib/options.js).
-             Keys today: lang 'he' | 'en' (the group's language). New settings are added here, not as columns.
+             Keys: lang 'he'|'en'; format 'rounds'|'game'; periods 1–4; break_minutes 0–30; extra_minutes 0–10;
+             tie 'extra'|'penalties'|'draw'; team_a / team_b bib colors (blue, orange, red, white, black,
+             yellow, green, purple; never the same). Numbers must be whole numbers. New settings go here, not as columns.
+             match_minutes 2–120 (the length of one period).
 players      + group_id → groups (default my_group(), never changes), is_admin bool,
              nickname, claimed_at, photo ≤ 300000 chars, positions text[] ⊆ {gk,def,mid,att},
              photo_v (generated: changes with the photo; the app lists players without photo
@@ -34,7 +37,10 @@ player_codes player_id, code
 ballots      voter_id, ranking uuid[]                         -- no access; functions only
 nights       + group_id (default my_group()), unique (group_id, day), cancelled
 attendance   + group_id (set by trigger from the night)
-matches      (match_minutes, win_goals: copied from the group when the match starts) + group_id (set by trigger from the night)
+matches      (match_minutes, win_goals and rules {periods, break_minutes, extra_minutes, tie}: copied from the group
+             when the match starts, never changed after; rules null = from before: one period, 2 min extra time, golden goal)
+             + group_id (set by trigger from the night), period 1–4, break_since (half-time started),
+             phase regular|break|extra|golden|penalties, winner a|b|draw
 goals        + group_id (set by trigger from the match)
 mvp_votes    match_id, voter_id, player_id                     -- no access; functions only
 ```
@@ -58,7 +64,7 @@ Phones listen on channel `g:<group id>` (broadcast, event `change`) and reload.
 
 ## Functions (all `security definer set search_path = ''`, executable by anon and authenticated)
 
-- `schema_version()` → 4 (3: no `options`).
+- `schema_version()` → 5 (4: no match rules or draws; 3: no `options`).
 - `create_group(p_group, p_name, p_emoji, p_photo, p_position, p_can_gk, p_nickname, p_positions, p_settings jsonb) → text` —
   new group with a new join code; the caller becomes its first player, admin and claimed. Returns his personal code.
   p_settings (all optional): weekday, kickoff, venue, team_size, match_minutes, win_goals, options (object).
@@ -75,7 +81,8 @@ Phones listen on channel `g:<group id>` (broadcast, event `change`) and reload.
 - `update_my_profile(p_code, …profile, p_positions, p_keep_photo default false)` — own emoji, photo, position,
   can_gk, positions, nickname only. p_keep_photo = leave the photo as it is.
 - `admin_ratings()` — admins only, ranking of their group (0–100 score per active player).
-- `make_teams(p_night, p_bench)` / `suggest_rotation(p_match)` — night/match must be in the caller's group,
+- `make_teams(p_night, p_bench)` / `suggest_rotation(p_match)` (also returns `stays`: 'a'|'b'; after a draw the team on
+  longer goes off, level = A stays) — night/match must be in the caller's group,
   else `not allowed`. Algorithms = `splitTeams` / `suggestRotation` in src/lib/teams.js; ratings from the
   group's ballots only (50 without votes).
 - `vote_mvp(p_code, p_match, p_player)`, `mvp_tally()` (caller's group), `my_mvp_votes(p_code)`.

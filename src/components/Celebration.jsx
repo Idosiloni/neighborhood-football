@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Avatar from './Avatar'
 import { TEAM } from '../lib/teamsMeta'
+import { PALETTE, teamColor } from '../lib/teamColors'
 import { buzz, play } from '../lib/sound'
 import { sport } from '../sports'
 import { t } from '../i18n'
@@ -14,7 +15,8 @@ export function celebrate(detail) {
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
-const COLORS = { a: ['#1e6fd9', '#5aa2ff', '#ffffff', '#ffd23f'], b: ['#f07a1a', '#ffb347', '#ffffff', '#ffd23f'] }
+// Confetti in the team's bib color (plus white and gold).
+const teamConfetti = (side) => [PALETTE[teamColor(side)].bg, PALETTE[teamColor(side)].deep, '#ffffff', '#ffd23f']
 
 function Confetti({ team }) {
   const ref = useRef(null)
@@ -25,7 +27,7 @@ function Confetti({ team }) {
     const w = (canvas.width = window.innerWidth * dpr)
     const h = (canvas.height = window.innerHeight * dpr)
     const c = canvas.getContext('2d')
-    const colors = COLORS[team] ?? [...COLORS.a, ...COLORS.b]
+    const colors = team === 'a' || team === 'b' ? teamConfetti(team) : [...teamConfetti('a'), ...teamConfetti('b')]
     const bits = Array.from({ length: 140 }, () => ({
       x: w / 2 + (Math.random() - 0.5) * w * 0.3,
       y: h * 0.55,

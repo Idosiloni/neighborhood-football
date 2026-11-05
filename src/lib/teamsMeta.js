@@ -1,23 +1,16 @@
 import { t } from '../i18n/index.js'
+import { teamColor } from './teamColors.js'
 
-// The two teams on the pitch. Names are read when shown, in the language of that moment.
-export const TEAM = {
-  a: {
-    get name() {
-      return t('common.team.a')
-    },
-    get short() {
-      return t('common.team.aShort')
-    },
-    color: 'var(--team-a)',
+// The two teams on the pitch. Names follow the group's bib colors and are read when shown,
+// in the language of that moment.
+const side = (s) => ({
+  get name() {
+    return t(`common.colors.${teamColor(s)}.team`)
   },
-  b: {
-    get name() {
-      return t('common.team.b')
-    },
-    get short() {
-      return t('common.team.bShort')
-    },
-    color: 'var(--team-b)',
+  get short() {
+    return t(`common.colors.${teamColor(s)}.short`)
   },
-}
+  color: `var(--team-${s})`,
+})
+
+export const TEAM = { a: side('a'), b: side('b') }

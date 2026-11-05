@@ -3,6 +3,7 @@ import { api } from '../data'
 import { GAME } from '../lib/dates'
 import { dayName, formatKickoff, language, t, tl } from '../i18n'
 import { openGroup, setMyCode } from '../lib/identity'
+import { cleanOptions } from '../lib/options'
 import PageHeader from '../components/PageHeader'
 import ProfileForm from '../components/ProfileForm'
 import InviteCard from '../components/InviteCard'
@@ -85,7 +86,7 @@ export default function CreateGroup() {
             onSubmit={async (f) => {
               let code
               try {
-                code = await api.createGroup(groupName, f, { ...settings, venue: settings.venue.trim() || null, options: { lang: language() } })
+                code = await api.createGroup(groupName, f, { ...settings, venue: settings.venue.trim() || null, options: { ...cleanOptions(settings.options), lang: language() } })
               } catch (err) {
                 const key = Object.keys(ERRORS).find((k) => err.message?.includes(k))
                 throw new Error(key ? t(`onboarding.create.errors.${ERRORS[key]}`) : t('common.failed'))

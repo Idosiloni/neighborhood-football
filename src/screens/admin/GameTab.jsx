@@ -6,6 +6,7 @@ import { RulesFields, WhenFields } from '../../components/GameSettings'
 import { forgetSchedule } from '../../lib/schedule'
 import { setGroupLanguage, t } from '../../i18n'
 import { optionsOf } from '../../lib/options'
+import { applyTeamColors } from '../../lib/teamColors'
 
 // The group's name, when and where we play, the game rules, and switching off one week.
 export default function GameTab({ group, reload: reloadGroup }) {
@@ -25,6 +26,12 @@ export default function GameTab({ group, reload: reloadGroup }) {
     setStatus('saving')
     try {
       await api.saveSchedule({ ...s, venue: s.venue?.trim() || null })
+      // The game options (format, halves, tie rule…) live with the group's other options; the language stays.
+      if (group && 'options' in group && s.options) {
+        await api.saveOptions({ ...optionsOf(group), ...s.options, lang: optionsOf(group).lang })
+        applyTeamColors(s.options)
+        await reloadGroup()
+      }
       forgetSchedule()
       setDraft(null)
       await reload()

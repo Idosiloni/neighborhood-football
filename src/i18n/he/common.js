@@ -25,11 +25,16 @@ export default {
   // "שבת 7.11, 9:30"
   gameLabel: '{day} {date}, {time}',
 
-  team: {
-    a: 'הכחולים',
-    aShort: 'כחול',
-    b: 'הכתומים',
-    bShort: 'כתום',
+  // Bib colors: the team's name ("הכחולים") and the short form ("כחול") follow the color.
+  colors: {
+    blue: { team: 'הכחולים', short: 'כחול' },
+    orange: { team: 'הכתומים', short: 'כתום' },
+    red: { team: 'האדומים', short: 'אדום' },
+    white: { team: 'הלבנים', short: 'לבן' },
+    black: { team: 'השחורים', short: 'שחור' },
+    yellow: { team: 'הצהובים', short: 'צהוב' },
+    green: { team: 'הירוקים', short: 'ירוק' },
+    purple: { team: 'הסגולים', short: 'סגול' },
   },
 
   language: 'שפה',

@@ -166,7 +166,8 @@ export function createSupabaseApi(url, key) {
     // ── the group's settings: when and where, and the game rules ──
     async getSchedule() {
       const g = await this.getGroup()
-      return g && pickSettings({ ...GAME, ...g })
+      // The rules columns, plus the options (format, halves, tie rule, colors…) for the forms and summaries.
+      return g && { ...pickSettings({ ...GAME, ...g }), options: g.options ?? {} }
     },
     async saveSchedule(settings) {
       check(await db.from('groups').update(pickSettings(settings)).eq('id', currentGroup()?.id))

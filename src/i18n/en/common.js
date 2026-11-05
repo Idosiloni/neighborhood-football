@@ -25,11 +25,16 @@ export default {
   // "Saturday 11/7, 9:30 AM"
   gameLabel: '{day} {date}, {time}',
 
-  team: {
-    a: 'Blues',
-    aShort: 'Blue',
-    b: 'Oranges',
-    bShort: 'Orange',
+  // Bib colors: the team's name ("Blues") and the short form ("Blue") follow the color.
+  colors: {
+    blue: { team: 'Blues', short: 'Blue' },
+    orange: { team: 'Oranges', short: 'Orange' },
+    red: { team: 'Reds', short: 'Red' },
+    white: { team: 'Whites', short: 'White' },
+    black: { team: 'Blacks', short: 'Black' },
+    yellow: { team: 'Yellows', short: 'Yellow' },
+    green: { team: 'Greens', short: 'Green' },
+    purple: { team: 'Purples', short: 'Purple' },
   },
 
   language: 'Language',

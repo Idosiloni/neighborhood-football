@@ -21,6 +21,7 @@ import Hello from './screens/Hello'
 import Celebration from './components/Celebration'
 import { setGroupLanguage, t, useLocale } from './i18n'
 import { optionsOf } from './lib/options'
+import { applyTeamColors } from './lib/teamColors'
 
 // Screens that work before this phone is in any group.
 const OPEN = new Set(['v', 'vote', 'join', 'new'])
@@ -68,7 +69,11 @@ function useSession(code, page) {
       setMyCode(code, me.group)
       // The group's language, for a phone that hasn't picked one (doesn't hold up the start).
       // A database without options (before schema version 4) only had Hebrew groups.
-      if (page !== 'join') api.getGroup().then((g) => g && setGroupLanguage('options' in g ? optionsOf(g).lang : 'he'), () => {})
+      api.getGroup().then((g) => {
+        if (!g) return
+        applyTeamColors(g.options)
+        if (page !== 'join') setGroupLanguage('options' in g ? optionsOf(g).lang : 'he')
+      }, () => {})
     }
     return { me, invalid: !me }
   }, [code])
