@@ -179,14 +179,14 @@ export default {
     scale: { 1: 'A weak spot', 2: 'Below our average', 3: 'About our average', 4: 'Strong', 5: 'Among the best here' },
     howTo: "Pick a category, then give each name 1–5. Tap again to clear. Skip anyone you don't know.",
     progress: '{n} of {total} rated for {attr}',
-    secret: 'Nobody sees who rated what. Cards update once a day, and a category shows up after 3 or more people rate it.',
+    secret: 'Individual ratings are secret from everyone. Cards update once a week, and a category shows up only after 3 or more ratings.',
     needLink: 'To rate, open the app with your personal link.',
     failed: "Didn't save. Please try again.",
     cta: 'Rate by category',
     ctaText: "Everyone's ratings build each player's card",
   },
   fullCard: {
-    basedOn: { one: 'Based on 1 rating', other: 'Based on {count} ratings' },
+    basedOn: 'Based on {range} ratings · updated once a week',
     missing: 'Not enough ratings for every category yet. Until then, the card rating comes from games.',
   },
 }

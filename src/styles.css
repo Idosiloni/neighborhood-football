@@ -900,6 +900,7 @@ p { margin: 0; }
 .fut-name { font-family: var(--display); font-size: 2.6rem; line-height: 1; margin-top: 8px; border-bottom: 2px solid currentColor; padding-bottom: 6px; }
 .fut-nick { font-size: 0.9rem; font-weight: 700; margin-top: 6px; opacity: 0.9; }
 .fut-attrs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 6px; margin: 14px 4px 22px; }
+.fut-attrs.four { grid-template-columns: repeat(2, 1fr); }
 .fut-attrs div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .fut-attrs b { font-family: var(--display); font-size: 2rem; line-height: 0.9; direction: ltr; }
 .fut-attrs span { font-size: 0.72rem; font-weight: 700; opacity: 0.8; white-space: nowrap; }

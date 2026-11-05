@@ -39,9 +39,9 @@ export function overallOf(values, positions = []) {
 }
 
 // Same steps as private.attr_scores. ratings: [{ voter_id, player_id, attr, score, updated_at }].
-// before: only ratings older than this ISO time count (published once a day).
+// before: only ratings older than this ISO time count (published once a week; null = all).
 // Returns [{ player_id, attr, value (1–5), raters }] for every category with a rating.
-export function combine(ratings, activeIds, { before = startOfToday() } = {}) {
+export function combine(ratings, activeIds, { before = startOfWeek() } = {}) {
   const active = new Set(activeIds)
   const base = ratings.filter(
     (r) => active.has(r.voter_id) && active.has(r.player_id) && r.voter_id !== r.player_id && (!before || r.updated_at < before),
@@ -73,10 +73,15 @@ export function combine(ratings, activeIds, { before = startOfToday() } = {}) {
   })
 }
 
-function startOfToday() {
+// Like date_trunc('week', now()) in the database: this Monday, 00:00 UTC.
+function startOfWeek() {
   const d = new Date()
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString()
+  const monday = (d.getUTCDay() + 6) % 7
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - monday)).toISOString()
 }
+
+// How many rated, as a range (never the exact number, which would tell who just rated).
+export const ratersRange = (n) => (n < MIN_RATERS ? null : n <= 5 ? '3–5' : n <= 10 ? '6–10' : '10+')
 
 // A player's card values from the published rows: { spd: 82, … } (only categories with enough raters).
 export function cardValues(rows, playerId) {

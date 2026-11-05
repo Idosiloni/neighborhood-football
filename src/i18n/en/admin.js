@@ -141,7 +141,7 @@ export default {
       peers: 'Everyone puts everyone in order, in secret.',
       admin: 'Only admins rate, 1–5 stars, in the Ranking tab.',
       none: 'Teams are split by positions only.',
-      attrs: 'Everyone gets 1–5 in each category from everyone else. The cards with the numbers are visible to all.',
+      attrs: 'Everyone gets 1–5 in each category from everyone else. The cards with the numbers are visible to all and update once a week.',
     },
     mvp: 'MVP vote after every game',
     assists: 'Record assists too',

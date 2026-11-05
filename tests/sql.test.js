@@ -1550,8 +1550,8 @@ test('upgrade: a version 6 database gets the seasons table, and running it again
 // ───────────── version 8: category ratings ─────────────
 
 const rateAttr = (voter, player, attr, score) => as(db, 'anon', 'select public.rate_attr($1, $2, $3, $4)', [C[voter], P[player], attr, score])
-// Ratings only count from the day after (published once a day); tests move them to yesterday.
-const publish = () => db.query(`update public.attr_ratings set updated_at = now() - interval '1 day'`)
+// Ratings only count from the next week (published once a week); tests move them 8 days back.
+const publish = () => db.query(`update public.attr_ratings set updated_at = now() - interval '8 days'`)
 const cards = async (who = MEMBER) => (await as(db, who, 'select * from public.attr_cards()')).rows
 
 test('categories: rate others 1–5 per category; not yourself, not another group, nothing odd', async () => {
@@ -1576,7 +1576,7 @@ test('categories: the ratings themselves are never readable; cards for members o
     const r = await as(db, who, 'select * from public.attr_ratings')
     assert.ok(r.error || r.rows.length === 0, JSON.stringify(who))
   }
-  assert.deepEqual(await cards(), []) // given today: not yet
+  assert.deepEqual(await cards(), []) // given this week: not yet
   await publish()
   const c = await cards()
   const p1 = c.find((x) => x.player_id === P.p1 && x.attr === 'spd')

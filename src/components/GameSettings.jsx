@@ -204,7 +204,7 @@ export function LevelFields({ value, onChange, disabled = false }) {
         </div>
         <small className="muted">{t(`admin.level.hints.${level}`)}</small>
       </div>
-      <Choice label={t('admin.level.rating')} options={['peers', 'admin', 'none']} value={value.rating}
+      <Choice label={t('admin.level.rating')} options={['peers', 'attrs', 'admin', 'none']} value={value.rating}
         onChange={(r) => !disabled && onChange({ rating: r })} text={(r) => t(`admin.level.ratings.${r}`)} />
       <small className="muted">{t(`admin.level.ratingHints.${value.rating}`)}</small>
       {toggle('mvp', t('admin.level.mvp'))}

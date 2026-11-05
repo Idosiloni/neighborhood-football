@@ -1094,7 +1094,7 @@ as $$ select b.moved is null or b.moved > 0 or cardinality(b.ranking) < 3 $$;
 
 -- Rating of every active player of a group: unrounded, 50 without votes.
 -- The combined value of each player in each category, 1–5. Same steps as src/lib/attributes.js:
--- - only ratings from before today (published once a day, so the timing doesn't tell who rated);
+-- - only ratings from before this week began (published once a week, so the timing doesn't tell who rated);
 -- - not about oneself, only active raters and players;
 -- - a rater who gave the same score to everyone in everything (3+ players) is left out;
 -- - 5+ raters: the highest and the lowest are dropped; then the mean, pulled toward the group's
@@ -1108,7 +1108,7 @@ as $$
     from public.attr_ratings r
     join public.players v on v.id = r.voter_id and v.active and v.group_id = p_group
     join public.players p on p.id = r.player_id and p.active and p.group_id = p_group
-    where r.group_id = p_group and r.voter_id <> r.player_id and r.updated_at < date_trunc('day', now())
+    where r.group_id = p_group and r.voter_id <> r.player_id and r.updated_at < date_trunc('week', now())
   ),
   flat as (
     select b.voter_id from base b group by b.voter_id

@@ -5,7 +5,7 @@ import { useLoad } from '../lib/hooks'
 import { useSchemaReady } from '../lib/schema'
 import { cardAttributes, computeAwards, computeStats, funTraits, headToHead, historyIn, milestones, seasonPeriods, tagline } from '../lib/stats'
 import FormDots from '../components/FormDots'
-import { cardValues, FIELD_ATTRS, GK_ATTRS, overallOf } from '../lib/attributes'
+import { cardValues, FIELD_ATTRS, GK_ATTRS, overallOf, ratersRange } from '../lib/attributes'
 import { optionsOf } from '../lib/options'
 import PageHeader from '../components/PageHeader'
 import Avatar from '../components/Avatar'
@@ -88,7 +88,7 @@ export function CardBody({ id }) {
         <div className="fut-name">{player.name}</div>
         {player.nickname && <div className="fut-nick">{t('stats.card.nickname', { name: player.nickname })}</div>}
         {!player.nickname && awards[0] && <div className="fut-nick">{awards[0].title}</div>}
-        <div className="fut-attrs">
+        <div className={`fut-attrs${attrs.length === 4 ? ' four' : ''}`}>
           {attrs.map((a) => (
             <div key={a.key}><b>{a.value}</b><span>{a.label}</span></div>
           ))}
@@ -115,7 +115,7 @@ export function CardBody({ id }) {
           {traits.map((x) => <span key={x.key} className="trait">{x.emoji} {x.label}</span>)}
         </div>
       )}
-      {full && full.raters > 0 && <p className="muted center small">{t('stats.fullCard.basedOn', { count: full.raters })}</p>}
+      {full && ratersRange(full.raters) && <p className="muted center small">{t('stats.fullCard.basedOn', { range: ratersRange(full.raters) })}</p>}
       {full && full.overall == null && <p className="muted center small">{t('stats.fullCard.missing')}</p>}
       {!full && s.overall == null && <p className="muted center small">{t('stats.card.ratingLater')}</p>}
 

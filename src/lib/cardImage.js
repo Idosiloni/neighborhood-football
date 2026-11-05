@@ -128,11 +128,15 @@ export async function drawCard({ player, overall, tier, attrs, traits, line }) {
   ctx.globalAlpha = 1
   if (player.nickname) text(ctx, t('stats.card.nickname', { name: player.nickname }), W / 2, cy + 690, { size: 44, weight: 600, color: ink, alpha: 0.9 })
 
-  // The six stats, 3 per row in reading order: number on top, label under it.
+  // The stats in reading order, number on top and label under it: 3 per row (six), or 2 per row
+  // for a goalkeeper's four.
+  const perRow = attrs.length === 4 ? 2 : 3
+  const step = perRow === 2 ? 320 : 230
+  const first = perRow === 2 ? 220 : 150
   attrs.forEach((a, i) => {
-    const col = i % 3
-    const row = Math.floor(i / 3)
-    const ax = rtl ? cx + cw - 150 - col * 230 : cx + 150 + col * 230
+    const col = i % perRow
+    const row = Math.floor(i / perRow)
+    const ax = rtl ? cx + cw - first - col * step : cx + first + col * step
     const ay = cy + 770 + row * 120
     text(ctx, String(a.value), ax, ay, { size: 84, color: ink, font: DISPLAY, dir: 'ltr' })
     text(ctx, a.label, ax, ay + 40, { size: 30, weight: 700, color: ink, alpha: 0.8 })

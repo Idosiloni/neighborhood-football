@@ -69,9 +69,9 @@ Phones listen on channel `g:<group id>` (broadcast, event `change`) and reload.
   starts_on)/delete. A season runs from its start day until the next one starts; games before the first are "earlier".
 - Category ratings (options.rating = 'attrs'): `rate_attr(p_code, p_player, p_attr, p_score)` (1–5, null removes; not
   oneself; attr spd|sht|pas|tec|def|fit|gk_ref|gk_han|gk_pos|gk_dis), `my_attr_ratings(p_code)`, `attr_cards()` (members:
-  combined 1–5 per player and category, only with 3+ raters), `attr_rating_status()` (admins: how many names each rated).
+  combined 1–5 per player and category, only with 3+ raters, published once a week), `attr_rating_status()` (admins: how many names each rated).
   `attr_ratings` has no table access. Combining (private.attr_scores = combine() in src/lib/attributes.js): only ratings
-  from before today, flat sheets ignored, 5+ raters drop the highest and lowest, then pulled toward the group's mean as
+  from before this week (Monday 00:00 UTC), flat sheets ignored, 5+ raters drop the highest and lowest, then pulled toward the group's mean as
   if 3 more average ratings were there. make_teams uses the mean of the field categories ((v − 1) × 25, 50 without).
 - Reading history: the API returns at most 1000 rows per request, so the app reads it page by page (`allRows`).
 - `set_options(p_patch jsonb) → jsonb` — admins only. Merges the patch into the group's options (null = remove the key,
