@@ -13,7 +13,8 @@ export default function Welcome({ invalid = false }) {
     <main className="page home">
       <header className="hero">
         <div className="hero-pitch" aria-hidden="true" />
-        <h1>{title1}<br />{title2}</h1>
+        {/* A long word ("Neighborhood") gets the smaller title size so it fits the screen. */}
+        <h1 className={Math.max(title1.length, title2.length) > 8 ? 'long' : ''}>{title1}<br />{title2}</h1>
         <p>{t('onboarding.welcome.tagline')}</p>
       </header>
 

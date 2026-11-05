@@ -79,7 +79,7 @@ export default function Home() {
     <main className="page home">
       <header className="hero">
         <div className="hero-pitch" aria-hidden="true" />
-        {groupName ? <h1 className={groupName.length > 12 ? 'long' : ''}>{groupName}</h1> : <h1>{tl('home.heroTitle').map((line, i) => <Fragment key={i}>{i > 0 && <br />}{line}</Fragment>)}</h1>}
+        {groupName ? <h1 className={groupName.length > 12 ? 'long' : ''}>{groupName}</h1> : <h1 className={Math.max(...tl('home.heroTitle').map((l) => l.length)) > 8 ? 'long' : ''}>{tl('home.heroTitle').map((line, i) => <Fragment key={i}>{i > 0 && <br />}{line}</Fragment>)}</h1>}
         <p>{me ? t('home.hello', { name: me.name }) : t('home.tagline')}</p>
         <GroupSwitcher label={t('home.myGroups')} className="hero-switch" />
       </header>
