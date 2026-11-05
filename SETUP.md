@@ -107,3 +107,19 @@ npm run dev
 להרצה במצב הדגמה גם כשיש מפתחות (לא נוגע בנתונים האמיתיים): `npm run dev:demo`.
 בדיקות: `npm test`.
 עם מפתחות: מעתיקים את `.env.example` ל-`.env.local` וממלאים.
+
+## התראות לטלפון (גרסה 9)
+
+פעם אחת לכל פרויקט Supabase (staging ו-production בנפרד, עם מפתחות נפרדים):
+
+1. `supabase/schema.sql` (גרסה 9) רץ קודם.
+2. מפתחות VAPID, מחוץ לפרויקט: `node scripts/vapid-keys.mjs ~/neighborhood-football-backups/keys/<env>`
+   - יוצא `vapid-private.json` (סודי, chmod 600, אף פעם לא ב-git), והמפתח הציבורי מודפס (שומרים ב-`vapid-public.txt` באותה תיקייה).
+3. הסודות של הפונקציה: `npx supabase secrets set --remote=<ref> VAPID_KEYS="$(cat …/vapid-private.json)" VAPID_CONTACT=https://neighborhood-football.vercel.app`
+4. הפונקציה: `npx supabase functions deploy push --remote=<ref> --no-verify-jwt --use-api`
+   - `--no-verify-jwt`: מותר לכל אחד לקרוא לה. היא רק שולחת מה שכבר מחכה בתור.
+5. התזמון (כל 5 דקות): מחליפים את `PROJECT_REF` ב-`supabase/push_setup.sql` ומריצים.
+6. המפתח הציבורי לאפליקציה: `VITE_VAPID_PUBLIC_KEY` (ב-`.env.staging.local` ל-staging, וב-Vercel → Environment Variables ל-production), ואז build/deploy.
+
+בדיקה: `curl -X POST https://<ref>.supabase.co/functions/v1/push` מחזיר `{"sent":0,"gone":0}`.
+באייפון התראות עובדות רק מהאפליקציה שעל המסך הראשי (iOS 16.4 ומעלה).

@@ -1669,6 +1669,11 @@ test('push: someone joins → the others with notifications are asked to rate (n
   assert.equal((await outbox(`o.body like '%Kobi%'`)).length, 0)
   await as(ndb, 'anon', 'select public.claim_player($1, $2, null, null, null, false, null)', [NG.joinCode, k.id])
   assert.equal((await outbox(`o.body like '%Kobi%'`)).length, 1)
+  // A regular added long ago who first votes now isn't announced.
+  const old = await nPlayer('Veteran', 'null')
+  await ndb.query(`update public.players set created_at = now() - interval '30 days' where id = $1`, [old.id])
+  await as(ndb, 'anon', 'select public.submit_ballot($1, $2)', [old.code, []])
+  assert.equal((await outbox(`o.body like '%Veteran%'`)).length, 0)
   // A group rated by the admins' stars: only admins hear about it.
   await ndb.query(`update public.groups set options = '{"rating": "admin"}' where id = $1`, [NG.id])
   await as(ndb, 'anon', 'select public.join_team($1, $2, null, null, null, false, null)', [NG.joinCode, 'Eli'])
@@ -1732,6 +1737,7 @@ test('join requests: ask a listed group, the admin lets in or says no, the phone
   assert.match((await as(ndb, 'anon', 'select public.request_join($1, $2, $3)', [NG.id, 'short', 'Rami'])).error, /invalid token/)
   assert.ok(!(await as(ndb, 'anon', 'select public.request_join($1, $2, $3, $4)', [NG.id, tok, 'Rami', 'שוער'])).error)
   assert.ok(!(await as(ndb, 'anon', 'select public.request_join($1, $2, $3, $4)', [NG.id, tok, 'Rami L', 'שוער'])).error) // again: updated
+  assert.equal(await count(ndb, `select count(*)::int as n from public.push_outbox where tag like '%' || $1 || '%'`, [tok]), 0) // the token never leaves
   let mine = (await as(ndb, 'anon', 'select * from public.my_requests($1)', [tok])).rows
   assert.equal(mine.length, 1)
   assert.equal(mine[0].status, 'pending')

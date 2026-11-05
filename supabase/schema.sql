@@ -1968,7 +1968,9 @@ declare
   v_body text;
   v_url text;
 begin
-  if new.claimed_at is null or not new.active or (tg_op = 'UPDATE' and old.claimed_at is not null) then
+  -- Only someone added lately: a regular the admin added long ago who first votes now isn't news.
+  if new.claimed_at is null or not new.active or (tg_op = 'UPDATE' and old.claimed_at is not null)
+     or new.created_at < now() - interval '14 days' then
     return null;
   end if;
   begin
@@ -2173,6 +2175,7 @@ declare
   g record;
   v_name text := trim(coalesce(p_name, ''));
   v_old text;
+  v_id uuid;
 begin
   select x.id, x.name, coalesce(x.options->>'lang', 'he') as lang into g from public.groups x where x.id = p_group and x.listed;
   if g.id is null then
@@ -2197,9 +2200,11 @@ begin
     raise exception 'too many requests';
   end if;
   insert into public.join_requests (group_id, token, name, note) values (p_group, p_token, v_name, nullif(trim(p_note), ''))
-  on conflict (group_id, token) do update set name = excluded.name, note = excluded.note;
+  on conflict (group_id, token) do update set name = excluded.name, note = excluded.note
+  returning id into v_id;
   if v_old is null then
-    perform private.queue_push(g.id, 'request:' || p_token, g.name,
+    -- Tagged by the request, never the token (the tag reaches the admins' phones).
+    perform private.queue_push(g.id, 'request:' || v_id::text, g.name,
       case when g.lang <> 'en' then 'בקשת הצטרפות: ' || v_name else 'Join request: ' || v_name end, '#/admin',
       array(select p.id from public.players p where p.group_id = g.id and p.is_admin));
   end if;
