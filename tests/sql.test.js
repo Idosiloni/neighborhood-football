@@ -1346,6 +1346,12 @@ test('upgrade: v2 data (join code, schedule, nights, matches, goals, MVP votes) 
   assert.equal(g.weekday, 4)
   assert.equal(g.kickoff, '20:00')
   assert.deepEqual(g.options, { lang: 'he' }) // it was a Hebrew group
+  // the match table came all the way from version 2 (like production): its old checks are gone
+  await up.query(`update public.matches set phase = 'break', period = 2 where id = $1`, [match])
+  await up.query(`update public.matches set winner = 'draw' where id = $1`, [match])
+  const checks = (await up.query(`select pg_get_constraintdef(oid) as d from pg_constraint where conrelid = 'public.matches'::regclass and contype = 'c'`)).rows.map((r) => r.d)
+  assert.ok(!checks.some((d) => /winner/.test(d) && !/draw/.test(d)), checks.join(' | '))
+  assert.ok(!checks.some((d) => /phase/.test(d) && !/break/.test(d)), checks.join(' | '))
   for (const t of ['players', 'nights', 'attendance', 'matches', 'goals'])
     assert.equal(await count(up, `select count(*)::int as n from public.${t} where group_id is distinct from $1`, [g.id]), 0, t)
   assert.equal(await one(up, `select to_regclass('public.settings') as t`).then((r) => r.t), null)
