@@ -12,13 +12,14 @@ import NeedsUpdate from '../components/NeedsUpdate'
 import Icon from '../components/Icon'
 import Lineup from '../components/Lineup'
 import { writeManaging } from '../lib/managing'
+import { t } from '../i18n'
 
 export default function NextMatch({ matchId }) {
   const ready = useSchemaReady()
   return (
     <main className="page">
-      <PageHeader title="המשחק הבא" sub="המנצחת נשארת, הממתינים נכנסים" back={`#/match/${matchId}`} />
-      {ready === false ? <NeedsUpdate /> : ready ? <Body matchId={matchId} /> : <p className="center muted">טוען…</p>}
+      <PageHeader title={t('match.nextMatch')} sub={t('match.nextSub')} back={`#/match/${matchId}`} />
+      {ready === false ? <NeedsUpdate /> : ready ? <Body matchId={matchId} /> : <p className="center muted">{t('common.loading')}</p>}
     </main>
   )
 }
@@ -43,7 +44,7 @@ function Body({ matchId }) {
     }
   }, [data])
 
-  if (!data || !groups) return <p className="center muted">מחשב מי יוצא ומי נכנס…</p>
+  if (!data || !groups) return <p className="center muted">{t('match.computing')}</p>
 
   const { match, players, suggestion, later } = data
   const byId = Object.fromEntries(players.map((p) => [p.id, p]))
@@ -53,8 +54,8 @@ function Body({ matchId }) {
   if (later) {
     return (
       <div className="card empty">
-        <strong>משחק {later.num} כבר התחיל</strong>
-        <a className="btn" href={`#/match/${later.id}`}>למשחק {later.num}</a>
+        <strong>{t('match.laterStarted', { num: later.num })}</strong>
+        <a className="btn" href={`#/match/${later.id}`}>{t('match.toMatch', { num: later.num })}</a>
       </div>
     )
   }
@@ -66,7 +67,7 @@ function Body({ matchId }) {
       writeManaging(m.id) // whoever starts the match runs it
       go(`/match/${m.id}`)
     } catch {
-      setError('משחק חדש כבר נפתח בטלפון אחר. רענן את הדף.')
+      setError(t('match.newAlreadyStarted'))
       setStarting(false)
     }
   }
@@ -75,9 +76,9 @@ function Body({ matchId }) {
     <>
       <div className="swap-summary card">
         <div>
-          <h3>יוצאים מ{TEAM[loser].name}</h3>
+          <h3>{t('match.leaving', { team: TEAM[loser].name })}</h3>
           <div className="face-row">
-            {suggestion.leaving.length === 0 && <span className="muted">אף אחד (אין ממתינים)</span>}
+            {suggestion.leaving.length === 0 && <span className="muted">{t('match.nobodyLeaving')}</span>}
             {suggestion.leaving.map((id) => byId[id] && (
               <span key={id} className="face out"><Avatar player={byId[id]} size={36} /><small>{byId[id].name}</small></span>
             ))}
@@ -85,7 +86,7 @@ function Body({ matchId }) {
         </div>
         <Icon name="swap" size={26} className="swap-icon" />
         <div>
-          <h3>נכנסים</h3>
+          <h3>{t('match.entering')}</h3>
           <div className="face-row">
             {suggestion.entering.length === 0 && <span className="muted">—</span>}
             {suggestion.entering.map((id) => byId[id] && (
@@ -94,11 +95,11 @@ function Body({ matchId }) {
           </div>
         </div>
       </div>
-      <p className="muted small">יוצאים מי ששיחקו הכי הרבה ברצף, ושוער קבוע נשאר. לא מתאים? מחליפים בלחיצה.</p>
+      <p className="muted small">{t('match.rotationNote')}</p>
 
       <div className="view-toggle">
-        <button className={view === 'pitch' ? 'on' : ''} onClick={() => setView('pitch')}>⚽ מגרש</button>
-        <button className={view === 'edit' ? 'on' : ''} onClick={() => setView('edit')}>✏️ החלפות</button>
+        <button className={view === 'pitch' ? 'on' : ''} onClick={() => setView('pitch')}>{t('match.viewPitch')}</button>
+        <button className={view === 'edit' ? 'on' : ''} onClick={() => setView('edit')}>{t('match.viewEdit')}</button>
       </div>
       {view === 'pitch' ? (
         <Lineup teamA={groups.a} teamB={groups.b} byId={byId} />
@@ -109,7 +110,7 @@ function Body({ matchId }) {
       {error && <p className="err">{error}</p>}
       {member && (
         <button className="btn big" onClick={start} disabled={starting}>
-          <Icon name="play" size={20} /> התחל משחק {match.num + 1}
+          <Icon name="play" size={20} /> {t('match.startNum', { num: match.num + 1 })}
         </button>
       )}
     </>

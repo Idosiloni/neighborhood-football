@@ -18,6 +18,7 @@ import { CSS } from '@dnd-kit/utilities'
 import Avatar from './Avatar'
 import Icon from './Icon'
 import { positionsText } from '../lib/positions'
+import { t } from '../i18n'
 
 function Row({ player, index, count, onMove }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
@@ -36,10 +37,10 @@ function Row({ player, index, count, onMove }) {
         <small>{positionsText(player)}</small>
       </span>
       <span className="rank-arrows">
-        <button type="button" aria-label={`הזז את ${player.name} למעלה`} disabled={index === 0} onClick={() => onMove(index, index - 1)}>
+        <button type="button" aria-label={t('stats.vote.moveUp', { name: player.name })} disabled={index === 0} onClick={() => onMove(index, index - 1)}>
           <Icon name="up" size={16} stroke={2.5} />
         </button>
-        <button type="button" aria-label={`הזז את ${player.name} למטה`} disabled={index === count - 1} onClick={() => onMove(index, index + 1)}>
+        <button type="button" aria-label={t('stats.vote.moveDown', { name: player.name })} disabled={index === count - 1} onClick={() => onMove(index, index + 1)}>
           <Icon name="down" size={16} stroke={2.5} />
         </button>
       </span>
@@ -47,7 +48,7 @@ function Row({ player, index, count, onMove }) {
         type="button"
         className="drag-handle"
         ref={setActivatorNodeRef}
-        aria-label={`גרור את ${player.name}`}
+        aria-label={t('stats.vote.drag', { name: player.name })}
         {...attributes}
         {...listeners}
       >

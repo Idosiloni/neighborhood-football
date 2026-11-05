@@ -4,6 +4,9 @@ import App from './App'
 import { registerSW } from 'virtual:pwa-register'
 import './styles.css'
 import { unlockSound } from './lib/sound'
+import { applyTextSize } from './lib/textSize'
+
+applyTextSize()
 
 // A new version takes over and reloads the page by itself (no stale app after an update).
 registerSW({ immediate: true })

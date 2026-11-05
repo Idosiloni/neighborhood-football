@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { api } from '../data'
 import { useLoad, useLiveUpdates } from '../lib/hooks'
 import { getMyCode } from '../lib/identity'
@@ -15,6 +15,7 @@ import SignupCard from '../components/SignupCard'
 import InviteCard from '../components/InviteCard'
 import GroupSwitcher from '../components/GroupSwitcher'
 import { unplaced } from '../lib/placement'
+import { t, tl } from '../i18n'
 
 export default function Home() {
   const ready = useSchemaReady()
@@ -78,23 +79,23 @@ export default function Home() {
     <main className="page home">
       <header className="hero">
         <div className="hero-pitch" aria-hidden="true" />
-        {groupName ? <h1 className={groupName.length > 12 ? 'long' : ''}>{groupName}</h1> : <h1>כדורגל<br />שכונה</h1>}
-        <p>{me ? `היי ${me.name}, מוכן למשחק?` : 'קבוצות הוגנות, בלי ויכוחים'}</p>
-        <GroupSwitcher label="הקבוצות שלי" className="hero-switch" />
+        {groupName ? <h1 className={groupName.length > 12 ? 'long' : ''}>{groupName}</h1> : <h1>{tl('home.heroTitle').map((line, i) => <Fragment key={i}>{i > 0 && <br />}{line}</Fragment>)}</h1>}
+        <p>{me ? t('home.hello', { name: me.name }) : t('home.tagline')}</p>
+        <GroupSwitcher label={t('home.myGroups')} className="hero-switch" />
       </header>
 
       {me?.is_admin && view && view.roster.length <= 1 && (
         <section className="card stack">
-          <strong>🎉 הקבוצה מוכנה! עכשיו מזמינים את החברים</strong>
-          <p className="muted">שולחים את הקישור בקבוצת הוואטסאפ. כל אחד נרשם עם שם ותמונה, ומדרג את השאר. אפשר גם להוסיף רשימת שמות בעצמך, במסך הניהול.</p>
-          <a className="btn ghost small" href="#/admin">➕ הוספת שחקנים בעצמי</a>
+          <strong>{t('home.ready.title')}</strong>
+          <p className="muted">{t('home.ready.text')}</p>
+          <a className="btn ghost small" href="#/admin">{t('home.ready.addMyself')}</a>
         </section>
       )}
       {me?.is_admin && view && view.roster.length <= 1 && <InviteCard />}
 
       {view?.live && (
         <a className="card live-card" href={`#/match/${view.live.id}`}>
-          <span className="live-dot">משחק {view.live.num} חי עכשיו</span>
+          <span className="live-dot">{t('home.liveNow', { num: view.live.num })}</span>
           <div className="live-score">
             <span className="team-a-text">{TEAM.a.short} {view.liveScore.a}</span>
             <span className="muted">–</span>
@@ -106,8 +107,8 @@ export default function Home() {
       {view?.toVote && (
         <a className="card cta-card mvp-cta" href={`#/match/${view.toVote.id}`}>
           <div>
-            <strong>👑 מי היה השחקן של משחק {view.toVote.num}?</strong>
-            <p className="muted">שיחקת בו, אז יש לך קול. לוקח שנייה.</p>
+            <strong>{t('home.mvpAsk', { num: view.toVote.num })}</strong>
+            <p className="muted">{t('home.mvpText')}</p>
           </div>
           <Icon name="forward" />
         </a>
@@ -116,8 +117,8 @@ export default function Home() {
       {view?.newOnes?.length > 0 && (
         <a className="card cta-card" href="#/place">
           <div>
-            <strong>🆕 {view.newOnes.length === 1 ? `נוסף שחקן חדש: ${view.newOnes[0].name}` : `נוספו ${view.newOnes.length} שחקנים חדשים`}</strong>
-            <p className="muted">איפה הוא אצלך בדירוג? לחיצה אחת.</p>
+            <strong>{t('home.newPlayers', { count: view.newOnes.length, name: view.newOnes[0].name })}</strong>
+            <p className="muted">{t('home.newPlayersText', { count: view.newOnes.length, name: view.newOnes[0].name })}</p>
           </div>
           <Icon name="forward" />
         </a>
@@ -126,8 +127,8 @@ export default function Home() {
       {me && ready && !me.ranking && view?.roster?.length > 2 && (
         <a className="card cta-card rank-cta" href={`#/v/${code}`}>
           <div>
-            <strong>🗳️ עוד לא דירגת את השחקנים</strong>
-            <p className="muted">לוקח דקה, ועושים את זה פעם אחת. ככה הקבוצות יוצאות שוות.</p>
+            <strong>{t('home.rankTitle')}</strong>
+            <p className="muted">{t('home.rankText')}</p>
           </div>
           <Icon name="forward" />
         </a>
@@ -138,24 +139,30 @@ export default function Home() {
       <div className="tile-grid">
         <a className="tile tile-main" href="#/tonight">
           <Icon name="pitch" size={28} />
-          <strong>הערב</strong>
-          <span>{view ? (view.present ? `${view.present} הגיעו, ${view.played} משחקים` : 'מי מגיע? חלוקה לקבוצות') : dayLabel(day)}</span>
+          <strong>{t('home.tonight')}</strong>
+          <span>
+            {view
+              ? view.present
+                ? t('home.tonightNow', { arrived: t('home.arrived', { count: view.present }), games: t('home.games', { count: view.played }) })
+                : t('home.tonightEmpty')
+              : dayLabel(day)}
+          </span>
         </a>
         <a className="tile" href="#/stats">
           <Icon name="chart" size={24} />
-          <strong>סטטיסטיקה</strong>
-          <span>פרסים וכרטיסים</span>
+          <strong>{t('home.stats')}</strong>
+          <span>{t('home.statsText')}</span>
         </a>
         <a className="tile" href={code ? `#/v/${code}` : '#/vote'}>
           <span className="tile-emoji">🗳️</span>
-          <strong>דירוג שחקנים</strong>
-          <span>{me?.ranking ? 'עדכן את הדירוג' : 'סודי, רק המנהלים רואים'}</span>
+          <strong>{t('home.ranking')}</strong>
+          <span>{me?.ranking ? t('home.rankingUpdate') : t('home.rankingSecret')}</span>
         </a>
       </div>
 
       {view?.last && (
         <a className="card last-result" href={`#/match/${view.last.id}`}>
-          <span className="muted small">המשחק האחרון</span>
+          <span className="muted small">{t('home.lastGame')}</span>
           <div className="last-score">
             <span className={view.last.winner === 'a' ? 'won' : ''} style={{ '--c': TEAM.a.color }}>{TEAM.a.name} <b>{view.lastScore.a}</b></span>
             <span className="muted">–</span>
@@ -167,8 +174,8 @@ export default function Home() {
       {view?.roster?.length > 0 && (
         <section className="stack">
           <div className="section-head">
-            <h2 className="section-title">השחקנים שלנו</h2>
-            <span className="muted small">{view.registered} מתוך {view.roster.length} נרשמו</span>
+            <h2 className="section-title">{t('home.ourPlayers')}</h2>
+            <span className="muted small">{t('home.registered', { count: view.registered, total: view.roster.length })}</span>
           </div>
           <div className="roster">
             {view.roster.map((p) => (
@@ -186,7 +193,7 @@ export default function Home() {
 
       {view?.featured?.length > 0 && (
         <section className="stack">
-          <h2 className="section-title">על הפודיום</h2>
+          <h2 className="section-title">{t('home.podium')}</h2>
           <div className="featured">
             {view.featured.map((a) => (
               <a key={a.key} className="featured-item" href={`#/card/${a.ids.at(-1)}`}>
@@ -207,7 +214,7 @@ export default function Home() {
       {me?.is_admin && (
         <a className="admin-entry" href="#/admin">
           <Icon name="gear" size={18} />
-          ניהול הקבוצה
+          {t('home.manage')}
         </a>
       )}
     </main>

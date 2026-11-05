@@ -2,24 +2,26 @@ import { useMemo, useState } from 'react'
 import { api } from '../data'
 import { useLoad, useLiveUpdates } from '../lib/hooks'
 import { useSchemaReady } from '../lib/schema'
-import { computeAwards, computeStats, count } from '../lib/stats'
+import { computeAwards, computeStats } from '../lib/stats'
+import { t } from '../i18n'
 import PageHeader from '../components/PageHeader'
 import Avatar from '../components/Avatar'
 import NeedsUpdate from '../components/NeedsUpdate'
 
+// Labels come from stats.boards.<key>, read when shown.
 const BOARDS = [
-  { key: 'goals', label: 'שערים', value: (s) => s.goals, show: (s) => s.goals },
-  { key: 'assists', label: 'בישולים', value: (s) => s.assists, show: (s) => s.assists },
-  { key: 'wins', label: 'ניצחונות', value: (s) => s.wins, show: (s) => s.wins },
-  { key: 'rate', label: '% ניצחון', value: (s) => (s.games >= 3 ? s.winRate : -1), show: (s) => (s.games >= 3 ? `${Math.round(s.winRate * 100)}%` : '–') },
+  { key: 'goals', value: (s) => s.goals, show: (s) => s.goals },
+  { key: 'assists', value: (s) => s.assists, show: (s) => s.assists },
+  { key: 'wins', value: (s) => s.wins, show: (s) => s.wins },
+  { key: 'rate', value: (s) => (s.games >= 3 ? s.winRate : -1), show: (s) => (s.games >= 3 ? `${Math.round(s.winRate * 100)}%` : '–') },
 ]
 
 export default function Stats() {
   const ready = useSchemaReady()
   return (
     <main className="page">
-      <PageHeader title="סטטיסטיקה" sub="פרסים, טבלאות וכרטיסי שחקן" />
-      {ready === false ? <NeedsUpdate /> : ready ? <StatsBody /> : <p className="center muted">טוען…</p>}
+      <PageHeader title={t('stats.title')} sub={t('stats.sub')} />
+      {ready === false ? <NeedsUpdate /> : ready ? <StatsBody /> : <p className="center muted">{t('common.loading')}</p>}
     </main>
   )
 }
@@ -38,15 +40,15 @@ function StatsBody() {
     return { stats, awards: computeAwards(stats), byId: Object.fromEntries(data.players.map((p) => [p.id, p])) }
   }, [data])
 
-  if (!view) return <p className="center muted">טוען…</p>
+  if (!view) return <p className="center muted">{t('common.loading')}</p>
   const { stats, awards, byId } = view
 
   if (stats.matchCount === 0) {
     return (
       <div className="card empty">
         <div className="empty-emoji">📊</div>
-        <strong>עוד אין משחקים שהסתיימו</strong>
-        <p className="muted">אחרי המשחק הראשון יופיעו כאן מלך השערים, הצמד הזהב ועוד.</p>
+        <strong>{t('stats.empty.title')}</strong>
+        <p className="muted">{t('stats.empty.text')}</p>
       </div>
     )
   }
@@ -56,7 +58,7 @@ function StatsBody() {
 
   return (
     <>
-      <p className="muted small">{count(stats.matchCount, 'משחק אחד', 'משחקים')} עד היום</p>
+      <p className="muted small">{t('stats.matchesSoFar', { count: stats.matchCount })}</p>
       <section className="award-grid">
         {awards.map((a) => (
           <a key={a.key} className="award" href={`#/card/${a.ids[a.ids.length - 1]}`}>
@@ -72,11 +74,11 @@ function StatsBody() {
       </section>
 
       <section className="stack">
-        <h2 className="section-title">טבלאות</h2>
+        <h2 className="section-title">{t('stats.boardsTitle')}</h2>
         <div className="tabs" role="tablist">
           {BOARDS.map((x) => (
             <button key={x.key} role="tab" aria-selected={board === x.key} className={board === x.key ? 'on' : ''} onClick={() => setBoard(x.key)}>
-              {x.label}
+              {t(`stats.boards.${x.key}`)}
             </button>
           ))}
         </div>
@@ -88,7 +90,7 @@ function StatsBody() {
                 <Avatar player={byId[s.id]} size={36} />
                 <span className="rank-name">
                   {byId[s.id].name}
-                  <small>{count(s.games, 'משחק אחד', 'משחקים')}</small>
+                  <small>{t('stats.games', { count: s.games })}</small>
                 </span>
                 <b className="board-value">{b.show(s)}</b>
               </a>

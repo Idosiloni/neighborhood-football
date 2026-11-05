@@ -1,0 +1,102 @@
+// Texts of the admin area: the admin screen and its tabs, and the group settings fields
+// (also used when opening a group). Gender-neutral Hebrew (docs/i18n.md). Same keys in he/ and en/.
+export default {
+  title: 'ניהול',
+  tabs: { players: 'שחקנים', links: 'קישורים', ranking: 'דירוג', game: 'קבוצה' },
+  lockedTitle: 'רק מנהלי הקבוצה נכנסים לכאן',
+  lockedText: 'מי שפתח את הקבוצה מנהל אותה, ויכול להפוך שחקנים נוספים למנהלים.',
+  sub: '{group} · רק המנהלים רואים את המסך הזה',
+  subNoGroup: 'רק המנהלים רואים את המסך הזה',
+  saved: '✓ נשמר',
+  saveFailed: 'השמירה נכשלה',
+
+  players: {
+    add: '＋ הוספת שחקן',
+    addList: '📋 הוספת רשימה',
+    // "פעילים: 14 · נרשמו בעצמם: 9 · יכולים לשמור: 3"
+    summary: '{active} · {claimed} · {keepers}',
+    active: 'פעילים: {count}',
+    claimed: 'נרשמו בעצמם: {count}',
+    keepers: 'יכולים לשמור: {count}',
+    inactive: 'לא פעילים',
+    nickname: '״{nickname}״',
+    joined: '✓ באפליקציה',
+    notJoined: 'עוד לא באפליקציה',
+  },
+
+  form: {
+    editTitle: 'עריכת שחקן',
+    newTitle: 'שחקן חדש',
+    photo: '📷 תמונה',
+    removePhoto: 'הסרת התמונה',
+    name: 'שם',
+    emoji: "אימוג'י",
+    active: 'בסגל הפעיל',
+    admin: 'ניהול הקבוצה 👑 (גישה לדירוג ולניהול השחקנים)',
+    reset: 'איפוס הרישום (השם הזה נבחר בטעות)',
+    delete: 'מחיקת השחקן',
+    needName: 'צריך שם',
+    lastAdmin: 'לקבוצה חייב להיות לפחות מנהל פעיל אחד. קודם צריך להפוך שחקן אחר למנהל.',
+    cantDeleteLastAdmin: 'אי אפשר למחוק את המנהל האחרון של הקבוצה.',
+    deleteFailed: 'המחיקה נכשלה',
+    confirmReset: 'לאפס את הרישום של {name}? השם יחזור לרשימה בקישור ההצטרפות, והקישור האישי הישן יפסיק לעבוד.',
+    confirmDelete: 'למחוק את {name} לגמרי? גם הדירוג שנשלח מהקישור של {name} יימחק. אם זו רק הפסקה, עדיף להוציא מהסגל הפעיל.',
+  },
+
+  bulk: {
+    title: 'הוספת רשימת שחקנים',
+    help: 'אפשר להדביק את הרשימה מוואטסאפ כמו שהיא (עם המספרים והכותרת). תמונה ועמדה כולם משלימים אחר כך בעצמם, דרך הקישור האישי.',
+    placeholder: 'יוסי\nנועה\nמשה',
+    toAdd: 'יתווספו {count}: {names}',
+    skipped: 'כבר ברשימה: {names}',
+    failed: 'חלק מהשחקנים לא נשמרו. אפשר לבדוק את הרשימה ולנסות שוב.',
+    adding: 'מוסיפים…',
+    add: { zero: 'הוספה', one: 'הוספת שחקן אחד', two: 'הוספת שני שחקנים', other: 'הוספת {count} שחקנים' },
+  },
+
+  game: {
+    language: 'שפת הקבוצה',
+    languageHint: 'השפה שמופיעה בכל הטלפונים, חוץ מטלפונים שנבחרה בהם שפה אחרת (ב"אני").',
+    languages: { he: 'עברית', en: 'English' },
+    groupName: 'שם הקבוצה',
+    next: 'המשחק הקרוב',
+    cancelled: 'בוטל. השחקנים רואים "אין משחק השבוע".',
+    restore: 'החזרת המשחק',
+    noGameThisWeek: 'אין משחק השבוע',
+    confirmCancel: 'לבטל את המשחק של {when}? כולם יראו "אין משחק השבוע".',
+    regular: 'המשחק הקבוע',
+    rules: 'חוקי המשחק',
+    rulesNote: 'משחק שכבר התחיל ממשיך עם החוקים שהיו כשהתחיל.',
+  },
+
+  links: {
+    title: 'קישורים אישיים',
+    help: 'שולחים לכל שחקן בהודעה פרטית: מי שמחזיק בקישור מדרג בשם השחקן. דלף? ↻ יוצר קוד חדש.',
+    // {group} comes right after "ל" ("לכדורגל שכונה"); with no name: "לקבוצה".
+    message: 'היי {name}! ⚽ זה הקישור האישי שלך ל{group}.\nהקישור הוא רק שלך, בבקשה לא להעביר אותו לאף אחד.\n{link}',
+    theGroup: 'קבוצה',
+    loadFailed: 'לא הצלחתי לטעון את הקודים האישיים: {error}',
+    unknownError: 'שגיאה לא ידועה',
+    noCode: 'אין קוד',
+    send: 'שליחה',
+    copyLabel: 'העתקת הקישור של {name}',
+    newLabel: 'קוד חדש ל{name}',
+    confirmNew: 'ליצור ל{name} קוד חדש? הקישור הישן יפסיק לעבוד, והדירוג נשמר.',
+  },
+
+  // The group's settings (admin → "Group", and when opening a group).
+  rules: {
+    day: 'באיזה יום?',
+    time: 'באיזו שעה?',
+    venue: 'איפה? (לא חובה)',
+    venuePlaceholder: 'למשל: מגרש הספורטק',
+    teamSize: 'כמה שחקנים בכל קבוצה במגרש?',
+    minutes: 'כמה דקות כל משחק?',
+    winGoals: 'מנצחת הראשונה שמגיעה ל...',
+    goalsChip: '{count} גולים',
+    noGoalLimit: 'בלי, רק זמן',
+    // "6 נגד 6, 7 דקות או ראשונה ל-3. תיקו: 2 דקות הארכה, ואז גול זהב. אפשר לחלק כשיש לפחות 8 שחקנים, והשאר מחכים בחוץ."
+    summaryGoals: '{size} נגד {size}, {minutes} דקות או ראשונה ל-{goals}. תיקו: {extra} דקות הארכה, ואז {goldenGoal}. אפשר לחלק כשיש לפחות {min} שחקנים, והשאר מחכים בחוץ.',
+    summaryTime: '{size} נגד {size}, {minutes} דקות. תיקו: {extra} דקות הארכה, ואז {goldenGoal}. אפשר לחלק כשיש לפחות {min} שחקנים, והשאר מחכים בחוץ.',
+  },
+}

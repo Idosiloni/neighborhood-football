@@ -7,6 +7,7 @@ import { go } from '../lib/router'
 import Avatar from '../components/Avatar'
 import InstallHint from '../components/InstallHint'
 import { rulesSummary } from '../components/GameSettings'
+import { t, tx } from '../i18n'
 
 // Right after joining a group: what this group is, when it plays, and what to do first.
 export default function Hello() {
@@ -17,48 +18,43 @@ export default function Hello() {
     return { me, players }
   }, [code])
 
-  if (!data?.me) return <main className="page"><p className="center muted">טוען…</p></main>
+  if (!data?.me) return <main className="page"><p className="center muted">{t('common.loading')}</p></main>
 
   const { me, players } = data
   const meFull = players.find((p) => p.id === me.id) ?? me
   const others = players.filter((p) => p.active && p.id !== me.id).length
   const when = gameLabel(nextGameDay(new Date(), schedule), schedule)
+  const step = (n) => tx(`onboarding.hello.step${n}`, { b: <b>{t(`onboarding.hello.step${n}b`)}</b> })
 
   return (
     <main className="page home">
       <header className="hero hello">
         <div className="hero-pitch" aria-hidden="true" />
         <Avatar player={meFull} size={84} />
-        <h1 className="long">ברוך הבא, {me.name}!</h1>
-        <p>אתה עכשיו ב{me.group.name}</p>
+        <h1 className="long">{t('onboarding.hello.title', { name: me.name })}</h1>
+        <p>{t('onboarding.hello.inGroup', { group: me.group.name })}</p>
       </header>
 
       <section className="card stack">
-        <span className="muted small">המשחק הבא</span>
+        <span className="muted small">{t('onboarding.hello.next')}</span>
         <p className="big-day">{when}</p>
         {schedule.venue && <p>📍 {schedule.venue}</p>}
         <p className="muted small">{rulesSummary(schedule)}</p>
       </section>
 
-      <h2 className="section-title">מה עושים עכשיו?</h2>
+      <h2 className="section-title">{t('onboarding.hello.whatNow')}</h2>
       <ol className="card steps hello-steps">
-        <li>
-          <b>מדרגים את השחקנים.</b> בסוד: אף אחד לא רואה את הדירוג שלך, ורק מנהלי הקבוצה רואים את התוצאה הכללית. ככה הקבוצות יוצאות שוות.
-        </li>
-        <li>
-          <b>נרשמים למשחק</b> בעמוד הבית ("אני בא"). ביום המשחק זו רשימת מי שהגיע.
-        </li>
-        <li>
-          <b>במגרש</b> האפליקציה מחלקת לשתי קבוצות שוות, סופרת זמן וגולים, ובסוף בוחרים את שחקן המשחק.
-        </li>
+        <li>{step(1)}</li>
+        <li>{step(2)}</li>
+        <li>{step(3)}</li>
       </ol>
 
       {others > 0 ? (
-        <button className="btn big" onClick={() => go(`/v/${code}`)}>בוא נדרג ⭐</button>
+        <button className="btn big" onClick={() => go(`/v/${code}`)}>{t('onboarding.hello.rankNow')}</button>
       ) : (
-        <p className="muted center">עוד אין את מי לדרג. כשיצטרפו עוד שחקנים, תראה אותם בעמוד הבית.</p>
+        <p className="muted center">{t('onboarding.hello.noOne')}</p>
       )}
-      <button className={`btn big${others > 0 ? ' ghost' : ''}`} onClick={() => go('/')}>{others > 0 ? 'אחר כך, לעמוד הבית' : 'לעמוד הבית'}</button>
+      <button className={`btn big${others > 0 ? ' ghost' : ''}`} onClick={() => go('/')}>{others > 0 ? t('onboarding.hello.later') : t('onboarding.hello.home')}</button>
       <InstallHint />
     </main>
   )

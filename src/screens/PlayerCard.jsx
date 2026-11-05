@@ -9,14 +9,14 @@ import Avatar from '../components/Avatar'
 import NeedsUpdate from '../components/NeedsUpdate'
 import { positionsText } from '../lib/positions'
 import { usePhoto } from '../lib/photos'
-
+import { t } from '../i18n'
 
 export default function PlayerCard({ id }) {
   const ready = useSchemaReady()
   return (
     <main className="page">
-      <PageHeader title="כרטיס שחקן" back="#/stats" />
-      {ready === false ? <NeedsUpdate /> : ready ? <CardBody id={id} /> : <p className="center muted">טוען…</p>}
+      <PageHeader title={t('stats.card.title')} back="#/stats" />
+      {ready === false ? <NeedsUpdate /> : ready ? <CardBody id={id} /> : <p className="center muted">{t('common.loading')}</p>}
     </main>
   )
 }
@@ -38,8 +38,8 @@ export function CardBody({ id }) {
 
   const [sharing, setSharing] = useState(false)
 
-  if (!view) return <p className="center muted">טוען…</p>
-  if (!view.player) return <p className="center muted">השחקן לא נמצא.</p>
+  if (!view) return <p className="center muted">{t('common.loading')}</p>
+  if (!view.player) return <p className="center muted">{t('stats.card.notFound')}</p>
 
   const { player, s, awards } = view
   const tier = s.overall == null ? 'new' : s.overall >= 75 ? 'gold' : s.overall >= 65 ? 'silver' : 'bronze'
@@ -58,11 +58,11 @@ export function CardBody({ id }) {
           <CardPhoto player={player} />
         </div>
         <div className="fut-name">{player.name}</div>
-        {player.nickname && <div className="fut-nick">״{player.nickname}״</div>}
+        {player.nickname && <div className="fut-nick">{t('stats.card.nickname', { name: player.nickname })}</div>}
         {!player.nickname && awards[0] && <div className="fut-nick">{awards[0].title}</div>}
         <div className="fut-attrs">
           {attrs.map((a) => (
-            <div key={a.label}><b>{a.value}</b><span>{a.label}</span></div>
+            <div key={a.key}><b>{a.value}</b><span>{a.label}</span></div>
           ))}
         </div>
       </div>
@@ -79,19 +79,19 @@ export function CardBody({ id }) {
           }
         }}
       >
-        {sharing ? 'מכין תמונה…' : '📤 שתף את הכרטיס'}
+        {sharing ? t('stats.card.preparing') : t('stats.card.share')}
       </button>
       <p className="tagline">{tagline(player)}</p>
       {traits.length > 0 && (
         <div className="trait-row">
-          {traits.map((t) => <span key={t.label} className="trait">{t.emoji} {t.label}</span>)}
+          {traits.map((x) => <span key={x.key} className="trait">{x.emoji} {x.label}</span>)}
         </div>
       )}
-      {s.overall == null && <p className="muted center small">הדירוג על הכרטיס מופיע אחרי 3 משחקים. הוא מחושב רק מתוצאות המשחקים.</p>}
+      {s.overall == null && <p className="muted center small">{t('stats.card.ratingLater')}</p>}
 
       {awards.length > 0 && (
         <section className="stack">
-          <h2 className="section-title">התארים שלו</h2>
+          <h2 className="section-title">{t('stats.card.awardsTitle')}</h2>
           {awards.map((a) => (
             <div key={a.key} className="card award-line"><span>{a.emoji}</span><strong>{a.title}</strong><span className="muted">{a.text}</span></div>
           ))}

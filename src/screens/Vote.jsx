@@ -4,8 +4,9 @@ import RankList from '../components/RankList'
 import { setMyCode } from '../lib/identity'
 import PageHeader from '../components/PageHeader'
 import { play } from '../lib/sound'
+import { t } from '../i18n'
 
-// Saved order first (minus anyone who left), then players he hasn't ranked yet.
+// Saved order first (minus anyone who left), then players they haven't ranked yet.
 function startingOrder(players, voter) {
   const others = players.filter((p) => p.active && p.id !== voter.id)
   const byId = new Map(others.map((p) => [p.id, p]))
@@ -17,16 +18,16 @@ function startingOrder(players, voter) {
 export default function Vote({ code }) {
   const [voter, setVoter] = useState()
   const [order, setOrder] = useState([])
-  const [start, setStart] = useState([]) // the order he was shown, to notice a save without ranking
+  const [start, setStart] = useState([]) // the order they were shown, to notice a save without ranking
   const [newOnes, setNewOnes] = useState(0)
   const [status, setStatus] = useState('idle') // idle | dirty | saving | saved | error
 
   useEffect(() => {
-    // The code comes first: the player list is the one of his group, read with his code.
+    // The code comes first: the player list is the one of their group, read with their code.
     api.getVoter(code)
       .then(async (v) => {
         if (!v) return setVoter(null)
-        setMyCode(code, v.group) // this phone now belongs to him: he can mark attendance and run matches
+        setMyCode(code, v.group) // this phone now belongs to them: they can mark attendance and run matches
         const players = await api.listPlayers()
         setVoter(v)
         const list = startingOrder(players, v)
@@ -37,13 +38,13 @@ export default function Vote({ code }) {
       .catch(() => setStatus('error'))
   }, [code])
 
-  if (status === 'error' && voter === undefined) return <Message text="אין חיבור כרגע. נסה שוב עוד רגע." />
-  if (voter === undefined) return <Message text="טוען…" />
-  if (voter === null) return <Message text="הקוד הזה לא נמצא. בקש ממנהל הקבוצה את הקישור האישי שלך." />
+  if (status === 'error' && voter === undefined) return <Message text={t('common.offline')} />
+  if (voter === undefined) return <Message text={t('common.loading')} />
+  if (voter === null) return <Message text={t('stats.vote.notFound')} />
 
   const save = async () => {
     const untouched = order.length >= 3 && order.every((p, i) => p.id === start[i])
-    if (untouched && !voter.ranking && !confirm('לא הזזת אף שחקן, הרשימה עדיין לפי א"ב. דירוג כזה לא נספר.\n\nלשמור בכל זאת?')) return
+    if (untouched && !voter.ranking && !confirm(t('stats.vote.untouched'))) return
     setStatus('saving')
     try {
       const ids = order.map((p) => p.id)
@@ -59,18 +60,17 @@ export default function Vote({ code }) {
 
   return (
     <main className="page vote">
-      <PageHeader title={`היי ${voter.name}`} sub="מי הכי טוב במגרש? סדר מלמעלה למטה" back="#/me" />
-      <p className="privacy">🔒 רק מנהלי הקבוצה רואים את הדירוג. את עצמך לא מדרגים. גוררים מ-⠿ או משתמשים בחצים.</p>
+      <PageHeader title={t('stats.vote.hi', { name: voter.name })} sub={t('stats.vote.sub')} back="#/me" />
+      <p className="privacy">{t('stats.vote.privacy')}</p>
       {voter.ranking && (
         <p className="note">
-          זה הדירוג ששמרת, הוא בתוקף. לא צריך לדרג שוב.
-          {newOnes === 1 && ' נוסף שחקן חדש בסוף, אפשר למקם אותו.'}
-          {newOnes > 1 && ` נוספו ${newOnes} שחקנים חדשים בסוף, אפשר למקם אותם.`}
+          {t('stats.vote.savedNote')}
+          {newOnes > 0 && ` ${t('stats.vote.newOnes', { count: newOnes })}`}
         </p>
       )}
 
       <div className="rank-ends">
-        <span>הכי טוב</span>
+        <span>{t('stats.vote.best')}</span>
         <RankList
           players={order}
           onChange={(next) => {
@@ -79,14 +79,14 @@ export default function Vote({ code }) {
             play('pop')
           }}
         />
-        <span>הכי פחות</span>
+        <span>{t('stats.vote.worst')}</span>
       </div>
 
       <div className="save-bar">
-        {status === 'saved' && <span className="ok">✓ נשמר!</span>}
-        {status === 'error' && <span className="err">השמירה נכשלה, נסה שוב</span>}
+        {status === 'saved' && <span className="ok">{t('stats.vote.saved')}</span>}
+        {status === 'error' && <span className="err">{t('stats.vote.saveFailed')}</span>}
         <button className="btn big" onClick={save} disabled={status === 'saving' || order.length === 0}>
-          {status === 'saving' ? 'שומר…' : voter.ranking ? 'עדכן דירוג' : 'שמור דירוג'}
+          {status === 'saving' ? t('common.saving') : voter.ranking ? t('stats.vote.update') : t('stats.vote.save')}
         </button>
       </div>
     </main>
@@ -96,7 +96,7 @@ export default function Vote({ code }) {
 function Message({ text }) {
   return (
     <main className="page">
-      <PageHeader title="דירוג שחקנים" back="#/" />
+      <PageHeader title={t('stats.vote.title')} back="#/" />
       <p className="center big-text">{text}</p>
     </main>
   )

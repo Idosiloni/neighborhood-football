@@ -6,6 +6,7 @@ import PositionPicker from '../../components/PositionPicker'
 import { photoToDataUrl } from '../../lib/photo'
 import { hasPhoto } from '../../lib/photos'
 import { normalizeName, parseNames } from '../../lib/parseList'
+import { isRTL, t } from '../../i18n'
 
 const EMPTY = { name: '', emoji: '⚽', photo: null, positions: [], position: 'any', can_gk: false, active: true, is_admin: false }
 
@@ -33,18 +34,22 @@ export default function PlayersTab({ players, reload }) {
   return (
     <section className="stack">
       <div className="row">
-        <button className="btn" onClick={() => setEditing(EMPTY)}>＋ הוסף שחקן</button>
-        <button className="btn ghost" onClick={() => setBulk(true)}>📋 הוסף רשימה</button>
+        <button className="btn" onClick={() => setEditing(EMPTY)}>{t('admin.players.add')}</button>
+        <button className="btn ghost" onClick={() => setBulk(true)}>{t('admin.players.addList')}</button>
       </div>
       <p className="muted">
-        {active.length} שחקנים פעילים, {active.filter((p) => p.claimed_at).length} כבר נרשמו בעצמם, {active.filter((p) => p.can_gk).length} יכולים לשמור
+        {t('admin.players.summary', {
+          active: t('admin.players.active', { count: active.length }),
+          claimed: t('admin.players.claimed', { count: active.filter((p) => p.claimed_at).length }),
+          keepers: t('admin.players.keepers', { count: active.filter((p) => p.can_gk).length }),
+        })}
       </p>
       <ul className="player-list">
         {active.map((p) => <PlayerRow key={p.id} player={p} onClick={() => setEditing(p)} />)}
       </ul>
       {inactive.length > 0 && (
         <>
-          <h3>לא פעילים</h3>
+          <h3>{t('admin.players.inactive')}</h3>
           <ul className="player-list dim">
             {inactive.map((p) => <PlayerRow key={p.id} player={p} onClick={() => setEditing(p)} />)}
           </ul>
@@ -61,11 +66,11 @@ function PlayerRow({ player, onClick }) {
         <Avatar player={player} />
         <span className="rank-name">
           {player.name}{player.is_admin && ' 👑'}
-          <small>{[positionsText(player), player.nickname && `״${player.nickname}״`].filter(Boolean).join(', ')}</small>
+          <small>{[positionsText(player), player.nickname && t('admin.players.nickname', { nickname: player.nickname })].filter(Boolean).join(', ')}</small>
         </span>
-        <span className={`reg${player.claimed_at ? ' on' : ''}`}>{player.claimed_at ? '✓ נרשם' : 'טרם נרשם'}
+        <span className={`reg${player.claimed_at ? ' on' : ''}`}>{player.claimed_at ? t('admin.players.joined') : t('admin.players.notJoined')}
         </span>
-        <span className="chev">‹</span>
+        <span className="chev">{isRTL() ? '‹' : '›'}</span>
       </button>
     </li>
   )
@@ -79,7 +84,7 @@ function PlayerForm({ initial, onCancel, onSaved }) {
 
   const save = async (e) => {
     e.preventDefault()
-    if (!p.name.trim()) return setError('צריך שם')
+    if (!p.name.trim()) return setError(t('admin.form.needName'))
     setBusy(true)
     try {
       const { id, name, emoji, photo, positions, active, is_admin } = p
@@ -87,14 +92,14 @@ function PlayerForm({ initial, onCancel, onSaved }) {
       await api.savePlayer({ id, name: name.trim(), emoji, ...(photo !== undefined && { photo }), ...fromPositions(positions), active, is_admin: Boolean(is_admin) })
       onSaved()
     } catch (err) {
-      setError(err.message?.includes('last admin') ? 'לקבוצה חייב להיות לפחות מנהל פעיל אחד. קודם הפוך שחקן אחר למנהל.' : 'השמירה נכשלה')
+      setError(err.message?.includes('last admin') ? t('admin.form.lastAdmin') : t('admin.saveFailed'))
       setBusy(false)
     }
   }
 
   // Someone took this name by mistake: free it for the join link and cut off whoever took it.
   const resetClaim = async () => {
-    if (!confirm(`לאפס את הרישום של ${p.name}? השם יחזור לרשימה בקישור ההצטרפות, והקישור האישי הישן שלו יפסיק לעבוד.`)) return
+    if (!confirm(t('admin.form.confirmReset', { name: p.name }))) return
     setBusy(true)
     await api.savePlayer({ id: p.id, claimed_at: null })
     await api.newCode(p.id)
@@ -102,41 +107,41 @@ function PlayerForm({ initial, onCancel, onSaved }) {
   }
 
   const remove = async () => {
-    if (!confirm(`למחוק את ${p.name} לגמרי? גם הדירוג שהוא נתן יימחק. אם הוא פשוט הפסיק לבוא, עדיף לסמן "לא פעיל".`)) return
+    if (!confirm(t('admin.form.confirmDelete', { name: p.name }))) return
     setBusy(true)
     try {
       await api.deletePlayer(p.id)
       onSaved()
     } catch (err) {
-      setError(err.message?.includes('last admin') ? 'אי אפשר למחוק את המנהל האחרון של הקבוצה.' : 'המחיקה נכשלה')
+      setError(err.message?.includes('last admin') ? t('admin.form.cantDeleteLastAdmin') : t('admin.form.deleteFailed'))
       setBusy(false)
     }
   }
 
   return (
     <form className="stack card" onSubmit={save}>
-      <h2>{p.id ? 'עריכת שחקן' : 'שחקן חדש'}</h2>
+      <h2>{p.id ? t('admin.form.editTitle') : t('admin.form.newTitle')}</h2>
 
       <div className="photo-pick">
         <Avatar player={p} size={72} />
         <label className="btn small">
-          📷 תמונה
+          {t('admin.form.photo')}
           <input type="file" accept="image/*" hidden onChange={async (e) => {
             const file = e.target.files?.[0]
             if (file) set({ photo: await photoToDataUrl(file) })
           }} />
         </label>
-        {hasPhoto(p) && <button type="button" className="link-btn" onClick={() => set({ photo: null })}>הסר תמונה</button>}
+        {hasPhoto(p) && <button type="button" className="link-btn" onClick={() => set({ photo: null })}>{t('admin.form.removePhoto')}</button>}
       </div>
 
       <label className="field">
-        שם
+        {t('admin.form.name')}
         <input className="input" value={p.name} onChange={(e) => set({ name: e.target.value })} autoFocus={!p.id} />
       </label>
 
       {!hasPhoto(p) && (
         <div className="field">
-          אימוג'י
+          {t('admin.form.emoji')}
           <div className="emoji-grid">
             {EMOJIS.map((em) => (
               <button type="button" key={em} className={p.emoji === em ? 'on' : ''} onClick={() => set({ emoji: em })}>{em}</button>
@@ -150,31 +155,31 @@ function PlayerForm({ initial, onCancel, onSaved }) {
       {p.id && (
         <label className="check">
           <input type="checkbox" checked={p.active} onChange={(e) => set({ active: e.target.checked })} />
-          פעיל (משחק אצלנו)
+          {t('admin.form.active')}
         </label>
       )}
 
       <label className="check">
         <input type="checkbox" checked={Boolean(p.is_admin)} onChange={(e) => set({ is_admin: e.target.checked })} />
-        מנהל קבוצה 👑 (רואה את הדירוג ומנהל שחקנים)
+        {t('admin.form.admin')}
       </label>
 
       {error && <p className="err">{error}</p>}
       <div className="row">
-        <button className="btn" disabled={busy}>שמור</button>
-        <button type="button" className="btn ghost" onClick={onCancel}>ביטול</button>
+        <button className="btn" disabled={busy}>{t('common.save')}</button>
+        <button type="button" className="btn ghost" onClick={onCancel}>{t('common.cancel')}</button>
       </div>
       {p.id && p.claimed_at && (
         <button type="button" className="btn ghost" onClick={resetClaim} disabled={busy}>
-          אפס רישום (מישהו בחר את השם הזה בטעות)
+          {t('admin.form.reset')}
         </button>
       )}
-      {p.id && <button type="button" className="link-btn danger" onClick={remove} disabled={busy}>מחק שחקן</button>}
+      {p.id && <button type="button" className="link-btn danger" onClick={remove} disabled={busy}>{t('admin.form.delete')}</button>}
     </form>
   )
 }
 
-// Paste many names at once (one per line). Each player can fill in his photo and position later.
+// Paste many names at once (one per line). Each player can fill in their photo and position later.
 function BulkAdd({ players, onDone, onCancel }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -192,22 +197,22 @@ function BulkAdd({ players, onDone, onCancel }) {
       for (const name of toAdd) await api.savePlayer({ name, emoji: '⚽', photo: null, position: 'any', can_gk: false, active: true })
       onDone()
     } catch {
-      setError('חלק מהשחקנים לא נשמרו. בדוק את הרשימה ונסה שוב.')
+      setError(t('admin.bulk.failed'))
       setBusy(false)
     }
   }
 
   return (
     <section className="card stack">
-      <h2>הוספת רשימת שחקנים</h2>
-      <p className="muted small">אפשר להדביק את הרשימה מוואטסאפ כמו שהיא (עם המספרים והכותרת). כל שחקן ישלים תמונה ועמדה בעצמו דרך הקישור האישי שלו.</p>
-      <textarea className="input textarea" rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={'יוסי\nאבי\nמשה'} />
-      {toAdd.length > 0 && <p className="ok">יתווספו {toAdd.length}: {toAdd.join(', ')}</p>}
-      {skipped.length > 0 && <p className="muted small">כבר ברשימה: {skipped.join(', ')}</p>}
+      <h2>{t('admin.bulk.title')}</h2>
+      <p className="muted small">{t('admin.bulk.help')}</p>
+      <textarea className="input textarea" rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('admin.bulk.placeholder')} />
+      {toAdd.length > 0 && <p className="ok">{t('admin.bulk.toAdd', { count: toAdd.length, names: toAdd.join(', ') })}</p>}
+      {skipped.length > 0 && <p className="muted small">{t('admin.bulk.skipped', { names: skipped.join(', ') })}</p>}
       {error && <p className="err">{error}</p>}
       <div className="row">
-        <button className="btn" onClick={save} disabled={busy || toAdd.length === 0}>{busy ? 'מוסיף…' : `הוסף ${toAdd.length || ''}`}</button>
-        <button className="btn ghost" onClick={onCancel} disabled={busy}>ביטול</button>
+        <button className="btn" onClick={save} disabled={busy || toAdd.length === 0}>{busy ? t('admin.bulk.adding') : t('admin.bulk.add', { count: toAdd.length })}</button>
+        <button className="btn ghost" onClick={onCancel} disabled={busy}>{t('common.cancel')}</button>
       </div>
     </section>
   )

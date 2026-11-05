@@ -3,8 +3,9 @@ import Avatar from './Avatar'
 import { TEAM } from '../lib/teamsMeta'
 import { buzz, play } from '../lib/sound'
 import { sport } from '../sports'
+import { t } from '../i18n'
 
-// A short full-screen moment: a goal ("גוווול!" with the scorer), or the end of a match.
+// A short full-screen moment: a goal ("גוווול!" / "GOOOAL!" with the scorer), or the end of a match.
 // Any screen calls celebrate(...); the one overlay in App shows it. Tap to close; it never blocks for long.
 
 export function celebrate(detail) {
@@ -117,7 +118,7 @@ export default function Celebration() {
       ) : (
         <div className="celebration-body">
           <div className="celebration-trophy">🏆</div>
-          <div className="celebration-word small">{team ? `${team.name} ניצחו!` : 'סוף המשחק'}</div>
+          <div className="celebration-word small">{team ? t('match.teamWins', { team: team.name }) : t('match.fullTime')}</div>
           {shown.score && <Score score={shown.score} />}
         </div>
       )}

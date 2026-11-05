@@ -5,6 +5,7 @@ import { getMyCode } from '../lib/identity'
 import { skip, unplaced } from '../lib/placement'
 import PageHeader from '../components/PageHeader'
 import Avatar from '../components/Avatar'
+import { t, tx } from '../i18n'
 
 // One new player at a time: tap the first player he is better than. Saved after each one.
 export default function Place() {
@@ -27,8 +28,8 @@ export default function Place() {
   if (!data || order === null) {
     return (
       <main className="page">
-        <PageHeader title="שחקן חדש" back="#/" />
-        <p className="center muted">{data && !data.me ? 'צריך קודם להצטרף ולדרג.' : 'טוען…'}</p>
+        <PageHeader title={t('onboarding.place.newPlayer')} back="#/" />
+        <p className="center muted">{data && !data.me ? t('onboarding.place.needJoin') : t('common.loading')}</p>
       </main>
     )
   }
@@ -54,11 +55,11 @@ export default function Place() {
   if (!current) {
     return (
       <main className="page">
-        <PageHeader title="הכול מעודכן" back="#/" />
+        <PageHeader title={t('onboarding.place.allSet')} back="#/" />
         <div className="card empty">
           <div className="empty-emoji">✅</div>
-          <strong>הדירוג שלך מעודכן</strong>
-          <a className="btn" href="#/">לדף הבית</a>
+          <strong>{t('onboarding.place.upToDate')}</strong>
+          <a className="btn" href="#/">{t('onboarding.place.home')}</a>
         </div>
       </main>
     )
@@ -66,10 +67,14 @@ export default function Place() {
 
   return (
     <main className="page">
-      <PageHeader title={`איפה ${current.name} אצלך?`} sub={queue.length > 1 ? `עוד ${queue.length - 1} אחריו` : 'שחקן חדש שהצטרף'} back="#/" />
+      <PageHeader
+        title={t('onboarding.place.where', { name: current.name })}
+        sub={queue.length > 1 ? t('onboarding.place.more', { count: queue.length - 1 }) : t('onboarding.place.justJoined')}
+        back="#/"
+      />
       <div className="place-new">
         <Avatar player={current} size={84} />
-        <p>לחץ על השחקן הראשון ש<strong>{current.name}</strong> יותר טוב ממנו:</p>
+        <p>{tx('onboarding.place.tap', { name: <strong>{current.name}</strong> })}</p>
       </div>
       <ol className="place-list">
         {order.map((id, i) => byId[id] && (
@@ -83,9 +88,9 @@ export default function Place() {
         ))}
       </ol>
       <button className="btn ghost" onClick={() => place(order.length)} disabled={saving}>
-        {current.name} פחות טוב מכולם
+        {t('onboarding.place.last', { name: current.name })}
       </button>
-      <button className="link-btn" onClick={later}>לא מכיר אותו עדיין, דלג</button>
+      <button className="link-btn" onClick={later}>{t('onboarding.place.skip')}</button>
     </main>
   )
 }

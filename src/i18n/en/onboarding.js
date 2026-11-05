@@ -1,0 +1,218 @@
+// Texts of the onboarding area: welcome, joining, opening a group, "Me", invites, install.
+// American English; same keys as he/onboarding.js. British differences: en-GB/onboarding.js.
+export default {
+  // Server error keys, mapped in Join.jsx
+  errors: {
+    alreadyClaimed: "Someone already signed up with this name. If that's you, ask the group admin for your personal link.",
+    nameTaken: "There's already a player with this name. If it's you, go back to the list and pick it. If not, add something to your name (like your last initial).",
+    invalidJoinCode: "This invite link doesn't work anymore. Ask the group admin for a new one.",
+    nameRequired: 'Please enter a name.',
+    groupFull: 'The group is full.',
+    nameOnList: 'That name is already on the list. Go back to the list and pick it.',
+  },
+
+  join: {
+    title: 'Join a group',
+    short: 'Join',
+    codeSub: 'Anyone already in the group can give you the code',
+    codeLabel: 'Join code',
+    notFound: "Couldn't find a group with this code",
+    notFoundHint: 'Maybe it was mistyped, or the link was replaced. Ask the group admin for a new one.',
+    tryAnother: 'Try another code',
+    alreadyIn: 'This phone is already in the group',
+    toGroup: 'Go to the group',
+    welcome: 'Welcome to {group}',
+    welcomeSub: 'Sign up once, and this phone will remember you',
+    pickName: 'Already on the list? Tap your name',
+    notOnList: "I'm not on the list, sign me up",
+    hi: 'Hi {name}!',
+    hiSub: 'Almost there: photo, position and nickname',
+    itsMe: "That's me, continue ⚽",
+    notMe: "That's not me, back to the list",
+    newTitle: 'Sign up',
+    newSub: 'Joining {group}. Fill this in once, and this phone will remember you',
+    submit: 'Join ⚽',
+    backToNames: 'Back to the list of names',
+  },
+
+  create: {
+    title: 'Start a new group',
+    sub: "You'll be the admin: invite players, see the rankings and set when you play",
+    steps: ['Name', 'When', 'Rules', 'You'],
+    stepsLabel: 'Steps',
+    nameLabel: "What's the group called?",
+    namePlaceholder: 'e.g. Friday soccer in the park',
+    whenTitle: 'When and where do you play?',
+    whenHint: 'Every week on this day a sign-up list opens, and on game day it becomes the list of who showed up.',
+    rulesTitle: 'How do you play?',
+    meTitle: 'And now, about you',
+    submit: 'Create the group ⚽',
+    errors: {
+      groupNameRequired: 'The group needs a name (up to 40 characters).',
+      nameRequired: 'Please enter your name (up to 30 characters).',
+      invalidSettings: "Something in the settings isn't right. Go back and check the day, time and rules.",
+    },
+    // "Every Saturday at 9:30 AM"
+    every: 'Every {day} at {time}',
+    everyAt: 'Every {day} at {time}, {venue}',
+    ready: '{name} is ready!',
+    inviteTitle: '1. Invite your friends',
+    linkTitle: '2. Save your link',
+    toGroup: 'Go to the group ⚽',
+    changeLater: 'You can change all of this later: Admin → Group.',
+  },
+
+  welcome: {
+    title: ['Neighborhood', 'Football'], // two lines
+    tagline: 'Fair teams, no arguments',
+    invalid: "The code saved on this phone doesn't work anymore (maybe it was replaced). Ask the group admin for a new link, or join again.",
+    myGroups: 'Your groups',
+    haveCode: '📨 I have a join code',
+    haveCodeHint: "Got a link or a code from your group? Pick your name and you're in.",
+    newGroup: '🆕 Start a new group',
+    newGroupHint: 'Organizing the game? Start a group, invite your friends, and the app splits everyone into even teams.',
+    howTitle: 'How it works',
+    // {b} is the bold start of the step
+    step1b: 'Sign up',
+    step1: '{b} with a name and a photo. No passwords, no email.',
+    step2b: 'Rank in secret:',
+    step2: "{b} who's best on the field? Only the group admins see the results.",
+    step3b: 'At the field,',
+    step3: '{b} mark who showed up and the app splits you into two even teams, with a clock, goals and stats.',
+    personalCode: 'I have a personal code',
+  },
+
+  hello: {
+    title: 'Welcome, {name}!',
+    inGroup: "You're now part of {group}",
+    next: 'Next game',
+    whatNow: 'What now?',
+    step1b: 'Rank the players.',
+    step1: "{b} It's secret: no one sees your ranking, and only the group admins see the overall result. That's how the teams come out even.",
+    step2b: 'Sign up for the game',
+    step2: "{b} on the home page with one tap. On game day, that's the list of who showed up.",
+    step3b: 'At the field,',
+    step3: '{b} the app splits everyone into two even teams, keeps time and goals, and at the end you pick the player of the game.',
+    rankNow: 'Start ranking ⭐',
+    noOne: "No one to rank yet. When more players join, they'll show up on the home page.",
+    later: 'Maybe later',
+    home: 'Go to the home page',
+  },
+
+  // The personal code form (Me.jsx, EnterCode.jsx)
+  code: {
+    rankTitle: 'Rank players',
+    title: 'Your personal code',
+    hint: 'You get the code (or a personal link) from the group admin. If you have a link, just open it and this phone will remember you.',
+    label: 'Personal code',
+    notFound: 'Code not found.',
+    offline: 'No connection right now.',
+    checking: 'Checking…',
+  },
+
+  me: {
+    textSize: 'Text size',
+    textSizes: { normal: 'Normal', large: 'Large', larger: 'Extra large' },
+    title: 'Me',
+    invalid: "The code saved on this phone doesn't work anymore. Ask the group admin for a new link.",
+    profileTitle: 'My profile',
+    profileSub: 'What shows on your card',
+    saveProfile: 'Save profile',
+    saveFailed: "Couldn't save. Maybe the photo is too big?",
+    hi: 'Hi {name} 👋',
+    adminSub: '{group} · Admin 👑',
+    addPhoto: '📸 Add a photo to your card',
+    addPhotoHint: 'A selfie or one from your gallery, plus a nickname and position.',
+    updateRanking: 'Update my ranking',
+    rank: 'Rank the players',
+    manage: 'Manage the group',
+    myGroups: 'My groups',
+    disconnectConfirm: 'Disconnect this phone from {group}? You can come back with your personal link.',
+    disconnect: "This isn't me (disconnect this phone from the group)",
+    leaveConfirm: "Leave {group}? You won't appear on the lists or in the rankings anymore, and your personal link will stop working. Your games and goals stay in the stats, and an admin can bring you back.",
+    lastAdmin: "You're the only admin. First make someone else an admin too (Admin → Players).",
+    leaveFailed: "Couldn't leave the group. Please try again.",
+    leave: 'Leave the group',
+    sounds: '🔊 Sounds (whistles, crowd on goals)',
+    goalSound: 'Goal sound (tap to hear and pick)',
+  },
+
+  place: {
+    newPlayer: 'New player',
+    needJoin: 'Join the group and rank the players first.',
+    allSet: 'All caught up',
+    upToDate: 'Your ranking is up to date',
+    home: 'Go to the home page',
+    where: 'Where does {name} go in your ranking?',
+    more: { one: '1 more after this one', other: '{count} more after this one' },
+    justJoined: 'Just joined the group',
+    tap: 'Tap the first name that should go below {name}:',
+    last: '{name} goes last',
+    skip: "Don't know them yet? Skip for now",
+  },
+
+  profile: {
+    photoError: "Couldn't read the photo",
+    nameRequired: 'Please enter a name',
+    camera: 'Take photo',
+    gallery: 'From gallery',
+    removePhoto: 'Remove photo',
+    name: 'Name (what people call you on the field)',
+    nickname: 'Nickname for your card (optional)',
+    nicknamePlaceholder: 'e.g. The Wall, Turbo, Rocket',
+    emoji: 'Emoji (if no photo)',
+  },
+
+  positions: {
+    title: 'Where do you play? (pick as many as you like)',
+    none: 'Nothing picked = anywhere but in goal.',
+    keeperOnly: 'Only goalkeeper = keeper only: always in goal, one per team, and stays on after a loss.',
+    alsoGoal: 'Can also go in goal when needed.',
+    everywhere: 'Anywhere, in goal too? Pick them all.',
+  },
+
+  invite: {
+    // The WhatsApp / share message
+    message:
+      '⚽ Join {group} on the app!\n' +
+      'Open the link, find your name on the list (or sign up), snap a selfie for your card and rank the players:\n' +
+      '{link}\n' +
+      '(Join code: {code})',
+    defaultGroup: 'the group',
+    loadError: "Couldn't load the join link: {error}",
+    noGroup: 'no group',
+    adminTitle: '🔗 Group join link',
+    title: '📨 Invite friends',
+    code: 'Join code',
+    adminHint: 'One link for the whole group. Players already on the list pick their name, and new ones sign up. Once a name is picked, it drops off the list.',
+    hint: "Send it to friends who aren't on the app yet. They pick their name from the list, or sign up.",
+    whatsapp: 'Send on WhatsApp',
+    copy: 'Copy',
+    copied: '✓ Copied',
+    renewConfirm: 'Create a new join link? The old one will stop working.',
+    renew: '↻ New',
+    button: '📨 Invite friends to the group',
+  },
+
+  myLink: {
+    title: '🔑 Your personal link',
+    adminHint: "Keep it somewhere safe (like sending it to yourself). It's how you get back in from a new phone and stay admin. Don't share it with anyone.",
+    hint: "It's how you get in from another phone. Don't share it with anyone: whoever has it can rank in your name.",
+    copy: 'Copy my link',
+    copied: '✓ Copied',
+  },
+
+  install: {
+    button: '📲 Install the app on your phone',
+    title: '📲 Add it to your home screen',
+    ios: 'Open the link in Safari (if it opened inside WhatsApp, tap ⋯ and then "Open in Safari"), tap the Share button ⬆️ and choose "Add to Home Screen".',
+    android: 'Open the link in Chrome (if it opened inside WhatsApp, tap ⋮ and then "Open in Chrome"), tap ⋮ and choose "Install app" or "Add to Home screen".',
+  },
+
+  groups: {
+    defaultTitle: 'Group',
+    title: 'My groups',
+    join: '📨 Join another group',
+    create: '🆕 Start a new group',
+  },
+}

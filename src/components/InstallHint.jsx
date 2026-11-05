@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '../i18n'
 
 const isStandalone = () =>
   window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
@@ -23,19 +24,15 @@ export default function InstallHint() {
   if (prompt) {
     return (
       <button className="btn install" onClick={() => prompt.prompt().then(() => setPrompt(null))}>
-        📲 התקן את האפליקציה בטלפון
+        {t('onboarding.install.button')}
       </button>
     )
   }
 
   return (
     <div className="card hint">
-      <strong>📲 להתקנה על המסך הראשי</strong>
-      {isIos() ? (
-        <p>פתח את הקישור ב-Safari (אם נפתח מתוך וואטסאפ: לחץ על ⋯ ואז "פתח ב-Safari"), לחץ על כפתור השיתוף ⬆️ ובחר "הוסף למסך הבית".</p>
-      ) : (
-        <p>פתח את הקישור ב-Chrome (אם נפתח מתוך וואטסאפ: לחץ על ⋮ ואז "פתח ב-Chrome"), לחץ על ⋮ ובחר "התקן אפליקציה" או "הוסף למסך הבית".</p>
-      )}
+      <strong>{t('onboarding.install.title')}</strong>
+      <p>{isIos() ? t('onboarding.install.ios') : t('onboarding.install.android')}</p>
     </div>
   )
 }

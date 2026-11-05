@@ -1,4 +1,4 @@
--- Neighborhood football, schema version 3: many groups in one database.
+-- Neighborhood football, schema version 4: many groups in one database, each with its own options.
 -- Each group has its own players, game nights, matches, ratings and join link.
 -- The player who opens a group is its admin (and may make other players admins too).
 --
@@ -134,6 +134,18 @@ alter table public.groups add column if not exists venue text;                  
 -- Null (matches from before) = the old rules: 7 minutes, first to 3.
 -- Which sport the group plays. Only 'football' for now (src/sports/ holds each sport's rules and words).
 alter table public.groups add column if not exists sport text not null default 'football';
+-- The group's other settings, as one object checked by private.options_valid (version 4, trigger groups_check_options).
+-- Today: lang ('he' / 'en', the group's language). More options are added there, never as new columns.
+-- Groups from before version 4 all played in Hebrew: they get lang 'he' once, when the column is added
+-- (so phones set to English keep showing them in Hebrew). Groups opened later are left alone.
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'groups' and column_name = 'options') then
+    alter table public.groups add column options jsonb not null default '{}'::jsonb;
+    update public.groups set options = '{"lang": "he"}';
+  end if;
+end $$;
 -- How many players the voter moved from the starting (alphabetical) order. 0 = he saved without
 -- ranking, and the ballot doesn't count. Null = saved before this was measured.
 alter table public.ballots add column if not exists moved int;
@@ -169,6 +181,34 @@ end $$;
 
 create schema if not exists private;
 revoke all on schema private from public;
+
+-- A group's options: an object with known keys only, each with an allowed value. Same rules as
+-- src/lib/options.js. A new option = a new line here and there (old groups simply don't have it).
+create or replace function private.options_valid(o jsonb)
+returns boolean
+language sql immutable set search_path = ''
+as $$
+  select jsonb_typeof(o) = 'object'
+    and not exists (select 1 from jsonb_object_keys(o) k where k not in ('lang'))
+    and (not o ? 'lang' or o->>'lang' in ('he', 'en'));
+$$;
+
+-- Checked by a trigger rather than a check constraint: a constraint would run private.options_valid
+-- as the caller, who may not use the private schema.
+create or replace function private.check_options()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if not private.options_valid(new.options) then
+    raise exception 'invalid options' using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists groups_check_options on public.groups;
+create trigger groups_check_options before insert or update of options on public.groups
+  for each row execute function private.check_options();
 
 -- The personal code this request carries (header x-player-code), lowercased.
 create or replace function private.header_code()
@@ -222,8 +262,8 @@ begin
     v_join := private.new_join_code();
   end if;
 
-  insert into public.groups (name, join_code, weekday, kickoff)
-  values ('כדורגל שכונה', lower(trim(v_join)), coalesce(v_weekday, 6), coalesce(v_kickoff, '9:30'))
+  insert into public.groups (name, join_code, weekday, kickoff, options)
+  values ('כדורגל שכונה', lower(trim(v_join)), coalesce(v_weekday, 6), coalesce(v_kickoff, '9:30'), '{"lang": "he"}')
   returning id into v_group;
 
   update public.players set group_id = v_group where group_id is null;
@@ -321,7 +361,7 @@ $$;
 create or replace function public.schema_version()
 returns int
 language sql immutable security definer set search_path = ''
-as $$ select 3 $$;
+as $$ select 4 $$;
 
 -- New rows land in the caller's group unless the server sets it.
 alter table public.players alter column group_id set default public.my_group();
@@ -606,7 +646,7 @@ create policy "admins change their group" on public.groups
   using (id = (select public.my_group()) and (select public.is_admin()))
   with check (id = (select public.my_group()));
 grant select on public.groups to anon, authenticated;
-grant update (name, weekday, kickoff, team_size, match_minutes, win_goals, venue) on public.groups to anon, authenticated;
+grant update (name, weekday, kickoff, team_size, match_minutes, win_goals, venue, options) on public.groups to anon, authenticated;
 
 -- Players: members see their group; admins add, edit and remove them.
 create policy "members read players" on public.players
@@ -675,7 +715,7 @@ begin
   end if;
 
   begin
-    insert into public.groups (name, join_code, weekday, kickoff, team_size, match_minutes, win_goals, venue)
+    insert into public.groups (name, join_code, weekday, kickoff, team_size, match_minutes, win_goals, venue, options)
     values (
       v_group_name, private.new_join_code(),
       coalesce((p_settings->>'weekday')::int, 6),
@@ -683,7 +723,8 @@ begin
       coalesce((p_settings->>'team_size')::int, 6),
       coalesce((p_settings->>'match_minutes')::int, 7),
       coalesce((p_settings->>'win_goals')::int, 3),
-      nullif(trim(p_settings->>'venue'), ''))
+      nullif(trim(p_settings->>'venue'), ''),
+      coalesce(p_settings->'options', '{}'::jsonb))
     returning id into v_group;
   exception when check_violation or invalid_text_representation then
     raise exception 'invalid settings';
@@ -715,6 +756,7 @@ as $$
     'weekday', g.weekday,
     'kickoff', g.kickoff,
     'venue', g.venue,
+    'lang', g.options->>'lang',
     'open', coalesce((
       select jsonb_agg(jsonb_build_object('id', p.id, 'name', p.name, 'emoji', p.emoji, 'photo', p.photo) order by p.name)
       from public.players p

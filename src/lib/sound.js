@@ -2,6 +2,8 @@
 // the last seconds of a match. Phones only allow sound after a tap, so the first tap anywhere
 // unlocks it (unlockSound in main.jsx). Each phone can switch sounds off in "אני".
 
+import { t as text } from '../i18n/index.js' // (t is the time in the sound code below)
+
 const KEY = 'sound-off'
 let ctx = null
 
@@ -206,13 +208,15 @@ function clip(file, fallback) {
 }
 
 // The goal sound each phone picked (in "אני").
+// label is read when shown, in the language of that moment.
+const labelled = (sound) => Object.defineProperty(sound, 'label', { get: () => text(`match.goalSounds.${sound.id}`), enumerable: true })
 export const GOAL_SOUNDS = [
-  { id: 'stadium', label: '🏟️ אצטדיון', file: 'sounds/goal-stadium.m4a' },
-  { id: 'cheer', label: '🎉 קהל חוגג', file: 'sounds/goal-cheer.m4a' },
-  { id: 'fanfare', label: '🎺 תרועה', synth: () => {
+  labelled({ id: 'stadium', file: 'sounds/goal-stadium.m4a' }),
+  labelled({ id: 'cheer', file: 'sounds/goal-cheer.m4a' }),
+  labelled({ id: 'fanfare', synth: () => {
     ;[[392, 0, 0.16], [523, 0.17, 0.16], [659, 0.34, 0.16], [784, 0.51, 0.7]].forEach(([freq, at, dur]) => brass({ freq, at, dur }))
     crowd({ at: 0.4, dur: 2.4, gain: 0.3 })
-  } },
+  } }),
 ]
 const playGoal = (g) => (g.file ? clip(g.file, () => { crowd({ dur: 3.2 }); horn({ at: 0.05 }) }) : g.synth())
 const GOAL_KEY = 'goal-sound'

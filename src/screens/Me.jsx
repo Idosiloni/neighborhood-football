@@ -14,6 +14,8 @@ import GroupSwitcher from '../components/GroupSwitcher'
 import MyLink from '../components/MyLink'
 import { hasPhoto } from '../lib/photos'
 import { GOAL_SOUNDS, goalSound, preview, setGoalSound, setSoundOn, soundOn } from '../lib/sound'
+import { LOCALES, pickedLocale, setLocale, t } from '../i18n'
+import { setTextSize, TEXT_SIZES, textSize } from '../lib/textSize'
 
 export default function Me({ edit = false }) {
   const [code, setCode] = useState(getMyCode)
@@ -29,30 +31,30 @@ export default function Me({ edit = false }) {
   if (!code || me === null) {
     return (
       <main className="page">
-        <PageHeader title="אני" />
-        {me === null && code && <p className="err">הקוד ששמור בטלפון כבר לא תקף. בקש ממנהל הקבוצה קישור חדש.</p>}
+        <PageHeader title={t('onboarding.me.title')} />
+        {me === null && code && <p className="err">{t('onboarding.me.invalid')}</p>}
         <CodeForm onDone={(c, voter) => { setMyCode(c, voter.group); setCode(c) }} />
       </main>
     )
   }
 
-  if (me === undefined) return <main className="page"><PageHeader title="אני" /><p className="center muted">טוען…</p></main>
+  if (me === undefined) return <main className="page"><PageHeader title={t('onboarding.me.title')} /><p className="center muted">{t('common.loading')}</p></main>
 
   if (edit) {
     return (
       <main className="page">
-        <PageHeader title="הפרופיל שלי" sub="מה שיופיע בכרטיס שלך" back="#/me" />
+        <PageHeader title={t('onboarding.me.profileTitle')} sub={t('onboarding.me.profileSub')} back="#/me" />
         {ready === false ? (
           <NeedsUpdate />
         ) : (
           <ProfileForm
             initial={{ emoji: '⚽', position: 'any', can_gk: false, nickname: '', ...me.player }}
-            submitLabel="שמור פרופיל"
+            submitLabel={t('onboarding.me.saveProfile')}
             onSubmit={async (f) => {
               try {
                 await api.updateMyProfile(code, f)
               } catch {
-                throw new Error('השמירה נכשלה. אולי התמונה גדולה מדי?')
+                throw new Error(t('onboarding.me.saveFailed'))
               }
               go('/me')
             }}
@@ -65,52 +67,54 @@ export default function Me({ edit = false }) {
   return (
     <main className="page">
       <PageHeader
-        title={`היי ${me.name} 👋`}
-        sub={`${me.group.name}${me.is_admin ? ' · מנהל 👑' : ''}`}
-        action={<a className="btn small ghost" href="#/me/edit"><Icon name="camera" size={16} /> ערוך</a>}
+        title={t('onboarding.me.hi', { name: me.name })}
+        sub={me.is_admin ? t('onboarding.me.adminSub', { group: me.group.name }) : me.group.name}
+        action={<a className="btn small ghost" href="#/me/edit"><Icon name="camera" size={16} /> {t('common.edit')}</a>}
       />
       {ready && me.player && !hasPhoto(me.player) && (
         <a className="card cta-card" href="#/me/edit">
           <div>
-            <strong>📸 שים תמונה לכרטיס שלך</strong>
-            <p className="muted">סלפי או מהגלריה, ועוד כינוי ועמדה.</p>
+            <strong>{t('onboarding.me.addPhoto')}</strong>
+            <p className="muted">{t('onboarding.me.addPhotoHint')}</p>
           </div>
           <Icon name="forward" />
         </a>
       )}
       {ready && <InviteButton />}
       {ready && <CardBody id={me.id} />}
-      <a className="btn ghost" href={`#/v/${code}`}>🗳️ {me.ranking ? 'עדכן את הדירוג שלי' : 'דרג את השחקנים'}</a>
-      {me.is_admin && <a className="btn ghost" href="#/admin"><Icon name="gear" size={18} /> ניהול הקבוצה</a>}
+      <a className="btn ghost" href={`#/v/${code}`}>🗳️ {me.ranking ? t('onboarding.me.updateRanking') : t('onboarding.me.rank')}</a>
+      {me.is_admin && <a className="btn ghost" href="#/admin"><Icon name="gear" size={18} /> {t('onboarding.me.manage')}</a>}
       <MyLink code={code} admin={me.is_admin} />
-      <GroupSwitcher label="הקבוצות שלי" className="on-light" />
+      <GroupSwitcher label={t('onboarding.me.myGroups')} className="on-light" />
       <SoundToggle />
+      <LanguagePicker />
+      <TextSizePicker />
       <button
         className="link-btn"
         onClick={() => {
-          if (!confirm(`לנתק את הטלפון הזה מ${me.group.name}? אפשר לחזור עם הקישור האישי שלך.`)) return
+          if (!confirm(t('onboarding.me.disconnectConfirm', { group: me.group.name }))) return
           forgetMyCode(code)
           window.location.hash = '#/'
           window.location.reload()
         }}
       >
-        זה לא אני (נתק את הטלפון מהקבוצה)
+        {t('onboarding.me.disconnect')}
       </button>
       <button
         className="link-btn danger"
         onClick={async () => {
-          if (!confirm(`לעזוב את ${me.group.name}? לא תופיע יותר ברשימות ובדירוג, והקישור האישי שלך יפסיק לעבוד. המשחקים והגולים שלך נשארים בסטטיסטיקה, ומנהל יכול להחזיר אותך.`)) return
+          if (!confirm(t('onboarding.me.leaveConfirm', { group: me.group.name }))) return
           try {
             await api.leaveGroup(code)
           } catch (err) {
-            return alert(err.message?.includes('last admin') ? 'אתה המנהל היחיד. קודם הפוך שחקן אחר למנהל (ניהול → שחקנים).' : 'לא הצלחתי לעזוב. נסה שוב.')
+            return alert(err.message?.includes('last admin') ? t('onboarding.me.lastAdmin') : t('onboarding.me.leaveFailed'))
           }
           forgetMyCode(code)
           window.location.hash = '#/'
           window.location.reload()
         }}
       >
-        עזוב את הקבוצה
+        {t('onboarding.me.leave')}
       </button>
     </main>
   )
@@ -130,23 +134,21 @@ export function CodeForm({ onDone }) {
     try {
       const voter = await api.getVoter(c)
       if (voter) onDone(c, voter)
-      else setError('הקוד לא נמצא.')
+      else setError(t('onboarding.code.notFound'))
     } catch {
-      setError('אין חיבור כרגע.')
+      setError(t('onboarding.code.offline'))
     }
     setBusy(false)
   }
 
   return (
     <form className="card stack" onSubmit={submit}>
-      <strong>הקוד האישי שלך</strong>
-      <p className="muted">
-        את הקוד (או קישור אישי) מקבלים ממנהל הקבוצה. אם יש לך קישור, פשוט פתח אותו והטלפון יזכור אותך.
-      </p>
+      <strong>{t('onboarding.code.title')}</strong>
+      <p className="muted">{t('onboarding.code.hint')}</p>
       <input className="input code-input" value={value} onChange={(e) => setValue(e.target.value)} placeholder="3fa9c21b"
-        autoCapitalize="off" autoCorrect="off" dir="ltr" aria-label="קוד אישי" />
+        autoCapitalize="off" autoCorrect="off" dir="ltr" aria-label={t('onboarding.code.label')} />
       {error && <p className="err">{error}</p>}
-      <button className="btn big" disabled={busy}>{busy ? 'בודק…' : 'המשך'}</button>
+      <button className="btn big" disabled={busy}>{busy ? t('onboarding.code.checking') : t('common.continue')}</button>
     </form>
   )
 }
@@ -161,11 +163,11 @@ function SoundToggle() {
     <div className="card stack">
       <label className="check">
         <input type="checkbox" checked={on} onChange={(e) => { setSoundOn(e.target.checked); setOn(e.target.checked) }} />
-        🔊 צלילים (שריקות, קהל בגול)
+        {t('onboarding.me.sounds')}
       </label>
       {on && (
         <div className="field">
-          צליל של גול (לחץ כדי לשמוע ולבחור)
+          {t('onboarding.me.goalSound')}
           <div className="chips">
             {GOAL_SOUNDS.map((g) => (
               <button type="button" key={g.id} className={goal === g.id ? 'on' : ''} aria-pressed={goal === g.id}
@@ -174,6 +176,44 @@ function SoundToggle() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// The app's language on this phone: automatic (the group's / the phone's), or a fixed one.
+// Picking one re-renders the whole app (App remounts on the locale).
+// Bigger text for anyone who finds it hard to read (per phone).
+function TextSizePicker() {
+  const [size, setSize] = useState(textSize)
+  return (
+    <div className="card stack">
+      <div className="field">
+        {t('onboarding.me.textSize')}
+        <div className="chips">
+          {TEXT_SIZES.map((s) => (
+            <button type="button" key={s} className={size === s ? 'on' : ''} aria-pressed={size === s}
+              onClick={() => { setSize(s); setTextSize(s) }}>{t(`onboarding.me.textSizes.${s}`)}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LanguagePicker() {
+  const [picked, setPicked] = useState(pickedLocale)
+  const options = [{ id: null, label: t('common.languageAuto') }, ...LOCALES]
+  return (
+    <div className="card stack">
+      <div className="field">
+        {t('common.language')}
+        <div className="chips">
+          {options.map((l) => (
+            <button type="button" key={l.id ?? 'auto'} lang={l.id ?? undefined} className={picked === l.id ? 'on' : ''} aria-pressed={picked === l.id}
+              onClick={() => { setPicked(l.id); setLocale(l.id) }}>{l.label}</button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

@@ -19,6 +19,8 @@ import Welcome from './screens/Welcome'
 import CreateGroup from './screens/CreateGroup'
 import Hello from './screens/Hello'
 import Celebration from './components/Celebration'
+import { setGroupLanguage, t, useLocale } from './i18n'
+import { optionsOf } from './lib/options'
 
 // Screens that work before this phone is in any group.
 const OPEN = new Set(['v', 'vote', 'join', 'new'])
@@ -57,11 +59,17 @@ function Screen({ page, param }) {
 }
 
 // Which group this phone is in now. Also remembers the group of a code saved before groups existed.
-function useSession(code) {
+// page: on a join link the screen shows the joined group's language, so the open group's isn't applied.
+function useSession(code, page) {
   const { data, error } = useLoad(async () => {
     if (!code) return { me: null }
     const me = await api.getVoter(code)
-    if (me) setMyCode(code, me.group)
+    if (me) {
+      setMyCode(code, me.group)
+      // The group's language, for a phone that hasn't picked one (doesn't hold up the start).
+      // A database without options (before schema version 4) only had Hebrew groups.
+      if (page !== 'join') api.getGroup().then((g) => g && setGroupLanguage('options' in g ? optionsOf(g).lang : 'he'), () => {})
+    }
     return { me, invalid: !me }
   }, [code])
   // Offline: trust the saved code, the screens show their own "no connection".
@@ -69,20 +77,26 @@ function useSession(code) {
   return data
 }
 
+// A language change remounts everything, so every screen reads its texts again.
 export default function App() {
+  const locale = useLocale()
+  return <AppBody key={locale} />
+}
+
+function AppBody() {
   const [page, param] = useRoute()
   const code = getMyCode()
-  const session = useSession(code)
+  const session = useSession(code, page)
 
   if (notConfigured) {
     return (
       <main className="page">
-        <p className="center big-text">האפליקציה עוד לא מחוברת לשרת. חסרים המפתחות של Supabase בהגדרות של Vercel.</p>
+        <p className="center big-text">{t('common.notConfigured')}</p>
       </main>
     )
   }
 
-  if (session === undefined) return <main className="page"><p className="center muted">טוען…</p></main>
+  if (session === undefined) return <main className="page"><p className="center muted">{t('common.loading')}</p></main>
 
   const outside = session.me === null && !OPEN.has(page)
   // The vote screen has its own save bar at the bottom; outside a group there is nowhere to go;
@@ -91,7 +105,7 @@ export default function App() {
 
   return (
     <div className={`app${showNav ? ' with-nav' : ''}`}>
-      {api.mode === 'demo' && <div className="demo-bar">מצב הדגמה: הנתונים נשמרים רק בטלפון הזה</div>}
+      {api.mode === 'demo' && <div className="demo-bar">{t('common.demoBar')}</div>}
       {outside ? (
         <Welcome invalid={session.invalid} />
       ) : (

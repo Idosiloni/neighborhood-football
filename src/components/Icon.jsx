@@ -24,9 +24,12 @@ const PATHS = {
   more: 'M12 6h.01M12 12h.01M12 18h.01',
 }
 
+// Arrows drawn for right-to-left; in English they're mirrored (styles.css: .icon.flip).
+const DIRECTIONAL = new Set(['back', 'forward'])
+
 export default function Icon({ name, size = 22, stroke = 2, className = '' }) {
   return (
-    <svg className={`icon ${className}`} width={size} height={size} viewBox="0 0 24 24" fill="none"
+    <svg className={`icon${DIRECTIONAL.has(name) ? ' flip' : ''} ${className}`} width={size} height={size} viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={PATHS[name]} />
     </svg>

@@ -6,6 +6,13 @@ import { getMyCode } from '../lib/identity'
 import { gameLabel, nextGameDay, today } from '../lib/dates'
 import { useSchedule } from '../lib/schedule'
 import Avatar from './Avatar'
+import { dayName, formatKickoff, shortDate, t } from '../i18n'
+
+// The weekday and short date of a 'YYYY-MM-DD' day, in the current language.
+function dayParts(day) {
+  const [y, m, d] = day.split('-').map(Number)
+  return { day: dayName(new Date(y, m - 1, d).getDay()), date: shortDate(m, d) }
+}
 
 // The weekly sign-up list (instead of the WhatsApp list): tap "I'm in", you're added at the end.
 // On game day these sign-ups are the attendance, in this order.
@@ -39,9 +46,9 @@ export default function SignupCard() {
   if (data.night?.cancelled) {
     return (
       <section className="card signup cancelled">
-        <span className="muted small">{isToday ? 'היום' : 'השבוע'}</span>
-        <h2>אין משחק {gameLabel(day, schedule).split(',')[0]} 😴</h2>
-        <p className="muted">נתראה בשבוע הבא.</p>
+        <span className="muted small">{isToday ? t('home.signup.today') : t('home.signup.thisWeek')}</span>
+        <h2>{t('home.signup.noGame', dayParts(day))}</h2>
+        <p className="muted">{t('home.signup.seeYou')}</p>
       </section>
     )
   }
@@ -59,7 +66,8 @@ export default function SignupCard() {
   }
 
   const copyList = async () => {
-    const text = [gameLabel(day, schedule).replace(',', ''), ...list.map((p, i) => `${i + 1}. ${p.name}`)].join('\n')
+    const header = t('home.signup.listHeader', { ...dayParts(day), time: formatKickoff(schedule.kickoff) })
+    const text = [header, ...list.map((p, i) => `${i + 1}. ${p.name}`)].join('\n')
     await navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
@@ -69,7 +77,7 @@ export default function SignupCard() {
     <section className="card signup">
       <div className="signup-head">
         <div>
-          <span className="muted small">{isToday ? 'המשחק היום' : 'המשחק הקרוב'}</span>
+          <span className="muted small">{isToday ? t('home.signup.nextToday') : t('home.signup.next')}</span>
           <h2>{gameLabel(day, schedule)}</h2>
         </div>
         <span className={`signup-count${list.length >= full ? ' full' : ''}`}>
@@ -79,7 +87,7 @@ export default function SignupCard() {
       <Countdown day={day} kickoff={schedule.kickoff} />
 
       {list.length === 0 ? (
-        <p className="muted">עוד אף אחד לא נרשם. תהיה הראשון!</p>
+        <p className="muted">{t('home.signup.empty')}</p>
       ) : (
         <ol className="signup-list">
           {list.map((p, i) => (
@@ -87,7 +95,7 @@ export default function SignupCard() {
               <span className="signup-num">{i + 1}</span>
               <Avatar player={p} size={26} />
               <span className="signup-name">{p.name}</span>
-              {i === full && <span className="signup-tag">ממתינים</span>}
+              {i === full && <span className="signup-tag">{t('home.signup.waiting')}</span>}
             </li>
           ))}
         </ol>
@@ -95,13 +103,13 @@ export default function SignupCard() {
 
       {me ? (
         <button className={`btn big${imIn ? ' ghost' : ''}`} onClick={toggle} disabled={busy}>
-          {busy ? '…' : imIn ? 'לא אוכל לבוא' : 'אני בא ✋'}
+          {busy ? '…' : imIn ? t('home.signup.out') : t('home.signup.in')}
         </button>
       ) : (
-        <a className="btn ghost" href="#/join">כדי להירשם למשחק, הצטרף לאפליקציה</a>
+        <a className="btn ghost" href="#/join">{t('home.signup.joinFirst')}</a>
       )}
       {list.length > 0 && (
-        <button className="link-btn" onClick={copyList}>{copied ? '✓ הרשימה הועתקה' : 'העתק את הרשימה לוואטסאפ'}</button>
+        <button className="link-btn" onClick={copyList}>{copied ? t('home.signup.copied') : t('home.signup.copy')}</button>
       )}
     </section>
   )
@@ -116,15 +124,15 @@ function Countdown({ day, kickoff }) {
   if (left <= 0) return null
   const s = Math.floor(left / 1000)
   const parts = [
-    [Math.floor(s / 86400), 'ימים'],
-    [Math.floor((s % 86400) / 3600), 'שעות'],
-    [Math.floor((s % 3600) / 60), 'דקות'],
-    [s % 60, 'שניות'],
+    [Math.floor(s / 86400), 'days'],
+    [Math.floor((s % 86400) / 3600), 'hours'],
+    [Math.floor((s % 3600) / 60), 'minutes'],
+    [s % 60, 'seconds'],
   ]
   return (
-    <div className="countdown" aria-label="זמן עד המשחק">
-      {parts.map(([n, label], i) => (i === 0 && n === 0 ? null : (
-        <span key={label}><b>{String(n).padStart(2, '0')}</b><small>{label}</small></span>
+    <div className="countdown" aria-label={t('home.signup.countdown')}>
+      {parts.map(([n, unit], i) => (i === 0 && n === 0 ? null : (
+        <span key={unit}><b>{String(n).padStart(2, '0')}</b><small>{t(`home.signup.units.${unit}`)}</small></span>
       )))}
     </div>
   )

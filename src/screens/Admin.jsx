@@ -5,15 +5,12 @@ import LinksTab from './admin/LinksTab'
 import RankingTab from './admin/RankingTab'
 import GameTab from './admin/GameTab'
 import PageHeader from '../components/PageHeader'
+import { t } from '../i18n'
 
-const TABS = [
-  { id: 'players', label: 'שחקנים' },
-  { id: 'links', label: 'קישורים' },
-  { id: 'ranking', label: 'דירוג' },
-  { id: 'game', label: 'קבוצה' },
-]
+// Tab names are in admin.tabs.
+const TABS = ['players', 'links', 'ranking', 'game']
 
-// The group's admins (whoever opened it, and whoever he made admin) manage it here,
+// The group's admins (whoever opened it, and whoever they made admin) manage it here,
 // recognized by their personal code like every other player.
 export default function Admin() {
   const [admin, setAdmin] = useState()
@@ -30,15 +27,15 @@ export default function Admin() {
     if (admin) reload()
   }, [admin])
 
-  if (admin === undefined) return <main className="page"><p className="center">טוען…</p></main>
+  if (admin === undefined) return <main className="page"><p className="center">{t('common.loading')}</p></main>
   if (!admin) {
     return (
       <main className="page">
-        <PageHeader title="ניהול" back="#/me" />
+        <PageHeader title={t('admin.title')} back="#/me" />
         <div className="card empty">
           <div className="empty-emoji">🔒</div>
-          <strong>רק מנהלי הקבוצה נכנסים לכאן</strong>
-          <p className="muted">מי שפתח את הקבוצה הוא המנהל, והוא יכול להפוך שחקנים נוספים למנהלים.</p>
+          <strong>{t('admin.lockedTitle')}</strong>
+          <p className="muted">{t('admin.lockedText')}</p>
         </div>
       </main>
     )
@@ -46,11 +43,11 @@ export default function Admin() {
 
   return (
     <main className="page admin">
-      <PageHeader title="ניהול" sub={group ? `${group.name} · רק המנהלים רואים את המסך הזה` : 'רק המנהלים רואים את המסך הזה'} back="#/me" />
+      <PageHeader title={t('admin.title')} sub={group ? t('admin.sub', { group: group.name }) : t('admin.subNoGroup')} back="#/me" />
       <nav className="tabs" role="tablist">
-        {TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>
-            {t.label}
+        {TABS.map((id) => (
+          <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
+            {t(`admin.tabs.${id}`)}
           </button>
         ))}
       </nav>

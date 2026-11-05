@@ -1,6 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeStats, computeAwards, overall } from '../src/lib/stats.js'
+import { computeStats, computeAwards, overall, funTraits, tagline, cardAttributes } from '../src/lib/stats.js'
+import { setLocale, getLocale, t, tl } from '../src/i18n/index.js'
+import heStats from '../src/i18n/he/stats.js'
+import enStats from '../src/i18n/en/stats.js'
 
 const players = ['a1', 'a2', 'b1', 'b2', 'k'].map((id) => ({ id, position: id === 'k' ? 'gk' : 'any' }))
 const m = (n, winner, live = false) => ({
@@ -72,3 +75,95 @@ test('MVP: most votes in a finished match wins; ties share it; live matches do n
   const award = computeAwards(s).find((a) => a.key === 'mvp')
   assert.ok(['a1', 'a2', 'k'].includes(award.ids[0]))
 })
+
+// Every trait at least once: a fresh keeper, and a busy player who wins, scores, assists and plays in goal.
+const traitCases = [
+  [{ games: 1, wins: 0, goals: 0, assists: 0, bestStreak: 0 }, { id: 'x1', position: 'gk' }],
+  [{ games: 25, wins: 20, goals: 30, assists: 40, bestStreak: 5 }, { id: 'x2', position: 'def', positions: ['def'], can_gk: true }],
+  [{ games: 6, wins: 1, goals: 0, assists: 0, bestStreak: 0 }, { id: 'x3', position: 'att', positions: ['att'] }],
+  [{ games: 6, wins: 1, goals: 9, assists: 0, bestStreak: 0 }, { id: 'x4', position: 'def', positions: ['def'] }],
+]
+const POS = ['att', 'mid', 'def', 'gk', 'any']
+
+function allTexts() {
+  const s = computeStats(players, matches, goals, [{ match_id: 'm1', player_id: 'a1', votes: 2 }])
+  const awards = computeAwards(s)
+  const traits = traitCases.flatMap(([st, p]) => funTraits(st, p))
+  return {
+    awards,
+    traits: [...traits.map((tr) => tr.label), ...Object.keys(heStats.traits).map((k) => t(`stats.traits.${k}`))],
+    lines: POS.flatMap((pos) => tl(`stats.taglines.${pos}`)),
+    attrs: [...cardAttributes(s.byId.a1), ...cardAttributes(s.byId.k)],
+  }
+}
+
+test('taglines are stable per player and the same index in every language', () => {
+  const p = { id: 'player-42', position: 'mid' }
+  assert.equal(tagline(p), tagline({ ...p }))
+  const he = tl('stats.taglines.mid').indexOf(tagline(p))
+  assert.ok(he >= 0)
+  assert.ok(tagline({ id: 'z', position: 'nowhere' })) // unknown position: the "any" lines
+  for (const pos of POS) assert.equal(tl(`stats.taglines.${pos}`).length, 3)
+})
+
+test('Hebrew texts: awards, traits and taglines', () => {
+  const { awards, traits, lines } = allTexts()
+  for (const x of [...awards.flatMap((a) => [a.title, a.text]), ...traits, ...lines]) {
+    assert.ok(x && /[\u05D0-\u05EA]/.test(x), `not Hebrew: ${x}`)
+  }
+})
+
+test('funTraits: at most 3 badges, from the position and the numbers', () => {
+  assert.deepEqual(funTraits(...traitCases[0]).map((x) => x.key), ['fresh', 'gloves'])
+  assert.deepEqual(funTraits(...traitCases[2]).map((x) => x.key), ['attStrike', 'optimist'])
+  for (const c of traitCases) assert.ok(funTraits(...c).length <= 3)
+})
+
+// Plural objects ({ one, two, other }) are leaves; English has no "two".
+const isPlural = (v) => v && typeof v === 'object' && !Array.isArray(v) && 'other' in v
+function keysOf(o, prefix = '') {
+  return Object.entries(o).flatMap(([k, v]) =>
+    v && typeof v === 'object' && !Array.isArray(v) && !isPlural(v) ? keysOf(v, `${prefix}${k}.`) : [`${prefix}${k}`],
+  )
+}
+test('stats texts: the same keys in Hebrew and English', () => {
+  assert.deepEqual(keysOf(enStats).sort(), keysOf(heStats).sort())
+})
+
+// setLocale needs somewhere to keep the pick; plain Node has no localStorage.
+function withLocale(id, fn) {
+  const had = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  const store = new Map()
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) },
+  })
+  try {
+    setLocale(id)
+    assert.equal(getLocale(), id)
+    fn()
+  } finally {
+    setLocale(null)
+    if (had) Object.defineProperty(globalThis, 'localStorage', had)
+    else delete globalThis.localStorage
+  }
+}
+
+for (const id of ['en-US', 'en-GB']) {
+  test(`${id} texts: awards, traits, taglines and card labels are English`, () => {
+    withLocale(id, () => {
+      const p = { id: 'player-42', position: 'gk' }
+      const { awards, traits, lines, attrs } = allTexts()
+      assert.ok(awards.length >= 5)
+      assert.ok(traits.length >= 11)
+      const texts = [...awards.flatMap((a) => [a.title, a.text]), ...traits, ...lines, ...attrs.map((a) => a.label), tagline(p)]
+      for (const x of texts) {
+        assert.ok(x && x.trim(), 'empty text')
+        assert.ok(!/[\u05D0-\u05EA]/.test(x), `Hebrew left in English: ${x}`)
+        assert.ok(!x.startsWith('stats.') && !x.startsWith('sport.'), `missing text: ${x}`)
+      }
+      for (const pos of POS) assert.equal(tl(`stats.taglines.${pos}`).length, 3)
+    })
+    assert.equal(getLocale(), 'he')
+  })
+}

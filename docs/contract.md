@@ -1,4 +1,4 @@
-# Data contract (schema version 3: groups)
+# Data contract (schema version 4: groups with options)
 
 The browser app (src/data/supabaseApi.js) and the database (supabase/schema.sql) must agree on this.
 The demo (src/data/mockApi.js) mirrors it in localStorage. Tests: tests/sql.test.js (PGlite).
@@ -22,7 +22,10 @@ group's code (`localStorage['my-player-code']`). Supabase Auth and `public.admin
 ```
 groups       id, name (1–40), join_code unique (6 chars a-z/2-9 without look-alikes; older groups may have 4 digits),
              weekday 0–6, kickoff 'H:MM', venue (≤ 60), team_size 3–11 (6), match_minutes 2–45 (7),
-             win_goals 0–10 (3; 0 = time only), created_at
+             win_goals 0–10 (3; 0 = time only), created_at,
+             options jsonb ({}): the group's other settings, one object with known keys only, checked by
+             trigger groups_check_options → private.options_valid (same rules: src/lib/options.js).
+             Keys today: lang 'he' | 'en' (the group's language). New settings are added here, not as columns.
 players      + group_id → groups (default my_group(), never changes), is_admin bool,
              nickname, claimed_at, photo ≤ 300000 chars, positions text[] ⊆ {gk,def,mid,att},
              photo_v (generated: changes with the photo; the app lists players without photo
@@ -40,7 +43,7 @@ A trigger refuses attendance/matches/goals that mention a player of another grou
 
 | table | select | insert/update/delete |
 |---|---|---|
-| groups | members of that group | update (name, weekday, kickoff) by its admins |
+| groups | members of that group | update (name, weekday, kickoff, rules, venue, options) by its admins |
 | players | members of that group | admins of that group (insert/update limited to profile columns + is_admin, claimed_at) |
 | player_codes | admins of that group | update (code) by its admins |
 | nights, attendance, matches, goals | members of that group | members of that group; cancelling a night: admins only |
@@ -55,12 +58,12 @@ Phones listen on channel `g:<group id>` (broadcast, event `change`) and reload.
 
 ## Functions (all `security definer set search_path = ''`, executable by anon and authenticated)
 
-- `schema_version()` → 3.
+- `schema_version()` → 4 (3: no `options`).
 - `create_group(p_group, p_name, p_emoji, p_photo, p_position, p_can_gk, p_nickname, p_positions, p_settings jsonb) → text` —
   new group with a new join code; the caller becomes its first player, admin and claimed. Returns his personal code.
-  p_settings (all optional): weekday, kickoff, venue, team_size, match_minutes, win_goals.
+  p_settings (all optional): weekday, kickoff, venue, team_size, match_minutes, win_goals, options (object).
   Errors: `group name required`, `name required`, `invalid settings`.
-- `group_preview(p_join) → jsonb` — `{id, name, weekday, kickoff, venue, open: [{id, name, emoji, photo}]}`
+- `group_preview(p_join) → jsonb` — `{id, name, weekday, kickoff, venue, lang, open: [{id, name, emoji, photo}]}`
   (active, unclaimed players), or null.
 - `join_team(p_join, p_name, …profile) → text` — errors in order: `invalid join code`, `name required`,
   `name taken` (active player of that group, case/space-insensitive), `too many players` (150 per group).

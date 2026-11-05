@@ -1,6 +1,7 @@
-// Draws a player's FIFA-style card as a JPEG (1080×1350) for sharing on WhatsApp / Instagram.
+// Draws a player's card as a JPEG (1080×1350) for sharing on WhatsApp / Instagram.
 import { positionsText } from './positions.js'
 import { loadPhoto } from './photos.js'
+import { isRTL, t } from '../i18n/index.js'
 
 const TIERS = {
   gold: ['#f7dc7a', '#b8892a', '#2b1f05'],
@@ -31,13 +32,14 @@ function cardPath(ctx, x, y, w, h) {
   ctx.closePath()
 }
 
-function text(ctx, str, x, y, { size, weight = 700, color, align = 'center', alpha = 1, font = BODY }) {
+// dir: the text's direction (the language's by default; numbers pass 'ltr').
+function text(ctx, str, x, y, { size, weight = 700, color, align = 'center', alpha = 1, font = BODY, dir = isRTL() ? 'rtl' : 'ltr' }) {
   ctx.save()
   ctx.font = `${weight} ${size}px ${font}`
   ctx.fillStyle = color
   ctx.textAlign = align
   ctx.globalAlpha = alpha
-  ctx.direction = 'rtl'
+  ctx.direction = dir
   ctx.fillText(str, x, y)
   ctx.restore()
 }
@@ -51,6 +53,7 @@ export async function drawCard({ player, overall, tier, attrs, traits, line }) {
   canvas.height = H
   const ctx = canvas.getContext('2d')
   const [c1, c2, ink] = TIERS[tier] ?? TIERS.new
+  const rtl = isRTL() // in Hebrew the rating is on the right and stats read right to left; mirrored in English
 
   // Background: a freshly mown pitch with chalk lines.
   ctx.fillStyle = '#1f8a4c'
@@ -85,7 +88,7 @@ export async function drawCard({ player, overall, tier, attrs, traits, line }) {
   ctx.restore()
 
   // Photo (or emoji), fading into the card at the bottom.
-  const px = cx + cw / 2 - 40
+  const px = cx + cw / 2 + (rtl ? -40 : 40)
   const py = cy + 120
   const ps = 400
   ctx.save()
@@ -112,8 +115,8 @@ export async function drawCard({ player, overall, tier, attrs, traits, line }) {
   }
   ctx.restore()
 
-  // Rating and position (right side, as on the screen).
-  const rx = cx + cw - 120
+  // Rating and position (on the reading side, as on the screen).
+  const rx = rtl ? cx + cw - 120 : cx + 120
   text(ctx, overall == null ? '?' : String(overall), rx, cy + 240, { size: 170, color: ink, font: DISPLAY })
   text(ctx, positionsText(player, { short: true }), rx, cy + 295, { size: 44, color: ink })
 
@@ -123,25 +126,22 @@ export async function drawCard({ player, overall, tier, attrs, traits, line }) {
   ctx.globalAlpha = 0.5
   ctx.fillRect(cx + 110, cy + 630, cw - 220, 3)
   ctx.globalAlpha = 1
-  if (player.nickname) text(ctx, `״${player.nickname}״`, W / 2, cy + 690, { size: 44, weight: 600, color: ink, alpha: 0.9 })
+  if (player.nickname) text(ctx, t('stats.card.nickname', { name: player.nickname }), W / 2, cy + 690, { size: 44, weight: 600, color: ink, alpha: 0.9 })
 
-  // The six stats, 3 per row, right to left: number on top, label under it.
+  // The six stats, 3 per row in reading order: number on top, label under it.
   attrs.forEach((a, i) => {
     const col = i % 3
     const row = Math.floor(i / 3)
-    const ax = cx + cw - 150 - col * 230
+    const ax = rtl ? cx + cw - 150 - col * 230 : cx + 150 + col * 230
     const ay = cy + 770 + row * 120
-    ctx.save()
-    ctx.direction = 'ltr'
-    text(ctx, String(a.value), ax, ay, { size: 84, color: ink, font: DISPLAY })
-    ctx.restore()
+    text(ctx, String(a.value), ax, ay, { size: 84, color: ink, font: DISPLAY, dir: 'ltr' })
     text(ctx, a.label, ax, ay + 40, { size: 30, weight: 700, color: ink, alpha: 0.8 })
   })
 
   // Under the card: fun badges and the funny line.
-  if (traits.length) text(ctx, traits.map((t) => `${t.emoji} ${t.label}`).join('   '), W / 2, cy + ch + 80, { size: 40, weight: 600, color: '#ffffff' })
+  if (traits.length) text(ctx, traits.map((x) => `${x.emoji} ${x.label}`).join('   '), W / 2, cy + ch + 80, { size: 40, weight: 600, color: '#ffffff' })
   text(ctx, line, W / 2, cy + ch + 140, { size: 36, weight: 400, color: 'rgba(255,255,255,0.85)' })
-  text(ctx, 'כדורגל שכונה', W / 2, H - 30, { size: 48, color: '#ffffff', font: DISPLAY })
+  text(ctx, t('common.appName'), W / 2, H - 30, { size: 48, color: '#ffffff', font: DISPLAY })
 
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
 }
@@ -151,7 +151,7 @@ export async function shareCard(blob, name) {
   const file = new File([blob], `${name}-card.jpg`, { type: 'image/jpeg' })
   if (navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], text: `הכרטיס של ${name} ⚽` })
+      await navigator.share({ files: [file], text: t('stats.card.shareText', { name }) })
       return 'shared'
     } catch (err) {
       if (err.name === 'AbortError') return 'cancelled'

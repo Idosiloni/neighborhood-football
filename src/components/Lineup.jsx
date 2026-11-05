@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { formation } from '../lib/lineup'
 import { TEAM } from '../lib/teamsMeta'
 import Avatar from './Avatar'
+import { t } from '../i18n'
 
 function Spot({ player, side, i = 0 }) {
   return (
@@ -41,7 +42,7 @@ export default function Lineup({ teamA, teamB, byId, deal = false }) {
           ) : (
             <div className="spot rotating">
               <span className="rotating-glove">🧤</span>
-              <span>מתחלפים בשער</span>
+              <span>{t('match.rotatingKeeper')}</span>
             </div>
           )}
         </div>

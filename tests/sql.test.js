@@ -85,9 +85,9 @@ test('schema: can be run again (third time) without errors', async () => {
   await db.exec(SCHEMA)
 })
 
-test('schema: schema_version() = 3 for anyone', async () => {
-  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 3)
-  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 3)
+test('schema: schema_version() = 4 for anyone', async () => {
+  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 4)
+  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 4)
 })
 
 test('schema: no table sends its rows over realtime (only content-free pings)', async () => {
@@ -869,6 +869,33 @@ test('rules: old groups keep 6 per team, 7 minutes, first to 3; only the admin c
   await db.query(`update public.groups set team_size = 6, match_minutes = 7, win_goals = 3, venue = null where id = $1`, [G.id])
 })
 
+test('options: start empty; only the admin changes them; unknown keys and values are refused', async () => {
+  const opts = async () => (await one(db, 'select options from public.groups where id = $1', [G.id])).options
+  assert.deepEqual(await opts(), {})
+  assert.deepEqual((await as(db, MEMBER, 'select options from public.groups')).rows, [{ options: {} }])
+  for (const who of [MEMBER, 'other', 'anon']) await as(db, who, `update public.groups set options = '{"lang":"en"}'`)
+  assert.deepEqual(await opts(), {})
+  const set = (o) => as(db, 'admin', 'update public.groups set options = $1', [o])
+  assert.ok(!(await set({ lang: 'en' })).error)
+  assert.deepEqual(await opts(), { lang: 'en' })
+  for (const bad of [{ lang: 'fr' }, { lang: 3 }, { color: 'red' }, [], 'he'])
+    assert.ok((await set(bad)).error, JSON.stringify(bad))
+  assert.deepEqual(await opts(), { lang: 'en' })
+  // the join link tells the group's language
+  assert.equal((await as(db, 'anon', 'select public.group_preview($1) as g', [G.joinCode])).rows[0].g.lang, 'en')
+  await db.query(`update public.groups set options = '{}' where id = $1`, [G.id])
+  assert.equal((await as(db, 'anon', 'select public.group_preview($1) as g', [G.joinCode])).rows[0].g.lang, null)
+})
+
+test('options: create_group takes them from the settings; bad ones are refused', async () => {
+  const make = (settings) => as(db, 'anon', 'select public.create_group($1, $2, null, null, null, null, null, null, $3) as code', ['Opts', 'Kim', settings])
+  const r = await make({ options: { lang: 'en' } })
+  assert.ok(!r.error, r.error)
+  assert.deepEqual((await as(db, { code: r.rows[0].code }, 'select options from public.groups')).rows[0].options, { lang: 'en' })
+  assert.match((await make({ options: { lang: 'xx' } })).error ?? '', /invalid settings/)
+  assert.match((await make({ options: { nope: 1 } })).error ?? '', /invalid settings/)
+})
+
 test('rules: a match keeps the rules it started with, even when the group changes them or a player tries', async () => {
   await db.query('update public.groups set match_minutes = 12, win_goals = 5 where id = $1', [G.id])
   const { matchIds: [m] } = await addNight(['p0', 'p1'], [{ num: 1, team_a: ['p0'], team_b: ['p1'], status: 'live', winner: null }])
@@ -946,13 +973,13 @@ test('join code: only the admin replaces it; the old link stops working', async 
   assert.ok(!(await join(fresh.toUpperCase(), 'Another')).error)
 })
 
-test('schema: running it again keeps groups and join codes; schema_version still 3', async () => {
+test('schema: running it again keeps groups and join codes; schema_version still 4', async () => {
   const jc = await joinCode()
   const groups = await count(db, 'select count(*)::int as n from public.groups')
   await db.exec(SCHEMA)
   assert.equal(await joinCode(), jc)
   assert.equal(await count(db, 'select count(*)::int as n from public.groups'), groups)
-  assert.equal((await one(db, 'select public.schema_version() as v')).v, 3)
+  assert.equal((await one(db, 'select public.schema_version() as v')).v, 4)
 })
 
 // ───────────── Several positions per player ─────────────
@@ -1183,7 +1210,9 @@ test('upgrade: v1 data (players, codes, ballots, ratings) survives the new schem
   assert.deepEqual((await one(up, 'select positions, can_gk from public.players where id = $1', [pid.d])), { positions: ['gk'], can_gk: true })
   assert.equal(await count(up, 'select count(*)::int as n from public.ballots where moved is null'), 0)
   assert.deepEqual((await one(up, 'select positions from public.players where id = $1', [pid.a])).positions, [])
-  assert.equal((await one(up, 'select public.schema_version() as v')).v, 3)
+  assert.equal((await one(up, 'select public.schema_version() as v')).v, 4)
+  // groups from before options existed played in Hebrew, and keep it
+  assert.deepEqual((await one(up, 'select options from public.groups')).options, { lang: 'he' })
   assert.equal(await count(up, 'select count(*)::int as n from public.groups'), 1)
   assert.equal(await count(up, 'select count(distinct group_id)::int as n from public.players'), 1)
 
@@ -1203,6 +1232,21 @@ test('upgrade: v1 data (players, codes, ballots, ratings) survives the new schem
     assert.equal(await count(up, `select count(*)::int as n from public.${t}`), 0)
 
   await up.close()
+})
+
+test('upgrade: v3 groups (before options) get Hebrew once; groups opened later keep their own', async () => {
+  const up = await newDb()
+  await up.exec(SCHEMA)
+  // a version 3 database: same tables, no options column yet
+  await up.exec('drop trigger groups_check_options on public.groups; alter table public.groups drop column options')
+  const old = await newGroup(up, 'Old')
+  await up.exec(SCHEMA)
+  assert.deepEqual((await one(up, 'select options from public.groups where id = $1', [old.id])).options, { lang: 'he' })
+  const later = await newGroup(up, 'Later', { main: false })
+  await up.query(`update public.groups set options = '{"lang": "en"}' where id = $1`, [later.id])
+  await up.exec(SCHEMA) // running it again changes nobody's language
+  assert.deepEqual((await one(up, 'select options from public.groups where id = $1', [later.id])).options, { lang: 'en' })
+  assert.deepEqual((await one(up, 'select options from public.groups where id = $1', [old.id])).options, { lang: 'he' })
 })
 
 test('upgrade: v2 data (join code, schedule, nights, matches, goals, MVP votes) moves into one group, run twice', async () => {
@@ -1230,6 +1274,7 @@ test('upgrade: v2 data (join code, schedule, nights, matches, goals, MVP votes) 
   assert.equal(g.join_code, '4821') // the link already in WhatsApp keeps working
   assert.equal(g.weekday, 4)
   assert.equal(g.kickoff, '20:00')
+  assert.deepEqual(g.options, { lang: 'he' }) // it was a Hebrew group
   for (const t of ['players', 'nights', 'attendance', 'matches', 'goals'])
     assert.equal(await count(up, `select count(*)::int as n from public.${t} where group_id is distinct from $1`, [g.id]), 0, t)
   assert.equal(await one(up, `select to_regclass('public.settings') as t`).then((r) => r.t), null)

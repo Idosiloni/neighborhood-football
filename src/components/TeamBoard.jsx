@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import Avatar from './Avatar'
 import { TEAM } from '../lib/teamsMeta'
+import { t } from '../i18n'
 
-const GROUPS = [
+// Titles are read when shown (the language can change while the app runs).
+const groupsList = () => [
   { key: 'a', title: TEAM.a.name, cls: 'team-a' },
   { key: 'b', title: TEAM.b.name, cls: 'team-b' },
-  { key: 'bench', title: 'ממתינים', cls: 'bench' },
+  { key: 'bench', title: t('match.bench'), cls: 'bench' },
 ]
 
 // Shows both teams and the bench. When editable: tap a player, then tap another to swap them,
-// or tap "העבר לכאן" to move him to a different group.
+// or tap "העברה לכאן" ("Move here") to move them to a different group.
 export default function TeamBoard({ groups, playersById, onChange, editable = false, marks = {} }) {
   const [picked, setPicked] = useState(null) // { id, from }
 
@@ -36,8 +38,8 @@ export default function TeamBoard({ groups, playersById, onChange, editable = fa
 
   return (
     <div className="team-board">
-      {editable && <p className="hint-line">{picked ? 'עכשיו בחר שחקן להחלפה, או "העבר לכאן"' : 'להחלפה: לחץ על שחקן ואז על שחקן אחר'}</p>}
-      {GROUPS.filter((g) => g.key !== 'bench' || groups.bench.length > 0 || picked).map((g) => (
+      {editable && <p className="hint-line">{picked ? t('match.swapPicked') : t('match.swapHint')}</p>}
+      {groupsList().filter((g) => g.key !== 'bench' || groups.bench.length > 0 || picked).map((g) => (
         <section key={g.key} className={`team-col ${g.cls}`}>
           <h3>
             {g.title} <span className="count">{groups[g.key].length}</span>
@@ -58,7 +60,7 @@ export default function TeamBoard({ groups, playersById, onChange, editable = fa
                     <Avatar player={p} size={32} />
                     <span>{p.name}</span>
                     {p.position === 'gk' && <span className="tag">🧤</span>}
-                    {mark === 'in' && <span className="tag in">נכנס</span>}
+                    {mark === 'in' && <span className="tag in">{t('match.markIn')}</span>}
                   </button>
                 </li>
               )
@@ -66,7 +68,7 @@ export default function TeamBoard({ groups, playersById, onChange, editable = fa
             {picked && picked.from !== g.key && (
               <li>
                 <button type="button" className="team-player move-here" onClick={() => moveTo(g.key)}>
-                  ＋ העבר לכאן
+                  {t('match.moveHere')}
                 </button>
               </li>
             )}

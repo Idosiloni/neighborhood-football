@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { currentGroup, getMyCode } from '../lib/identity'
 import { GAME, pickSettings } from '../lib/dates'
+import { cleanOptions } from '../lib/options'
 
 // '*' so newer columns show up once the schema update has been run.
 // Everything but the photo itself (see lib/photos.js): photo_v says which photo he has.
@@ -51,7 +52,11 @@ export function createSupabaseApi(url, key) {
     async saveGroup({ name }) {
       check(await db.from('groups').update({ name: name.trim() }).eq('id', currentGroup()?.id))
     },
-    // settings: weekday, kickoff, team_size, match_minutes, win_goals, venue (any can be left out).
+    // The whole options object (src/lib/options.js), admins only. Needs schema version 4.
+    async saveOptions(options) {
+      check(await db.from('groups').update({ options: cleanOptions(options) }).eq('id', currentGroup()?.id))
+    },
+    // settings: weekday, kickoff, team_size, match_minutes, win_goals, venue, options (any can be left out).
     async createGroup(groupName, f, settings = null) {
       return check(await db.rpc('create_group', { p_group: groupName, p_name: f.name, ...profileArgs(f), p_settings: settings }))
     },

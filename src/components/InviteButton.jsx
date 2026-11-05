@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../data'
 import { joinMessage } from './InviteCard'
+import { t } from '../i18n'
 
 // One tap to invite a friend: opens the phone's share menu (or WhatsApp) with the join link.
 // Only shows for players who may see the join code.
@@ -29,7 +30,7 @@ export default function InviteButton() {
 
   return (
     <button className="btn ghost invite-btn" onClick={share}>
-      📨 הזמן חבר לקבוצה <span className="invite-code" dir="ltr">{code}</span>
+      {t('onboarding.invite.button')} <span className="invite-code" dir="ltr">{code}</span>
     </button>
   )
 }

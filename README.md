@@ -2,7 +2,8 @@
 
 A phone app for a weekly pickup football game: who's coming, fair teams, a live match clock,
 and a ranking the players make themselves. Built for one Saturday-morning game in Israel,
-now open to any group. The app is in Hebrew (right-to-left).
+now open to any group. The app speaks Hebrew (right-to-left) and English (US and UK): each phone follows
+the group's language unless it picks its own. See [docs/i18n.md](docs/i18n.md).
 
 **Live:** https://neighborhood-football.vercel.app
 

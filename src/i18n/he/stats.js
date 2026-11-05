@@ -1,0 +1,129 @@
+// Texts of the stats area (owner: see docs/i18n.md). Same keys in he/ and en/.
+// Gender-neutral Hebrew: awards, traits and taglines fit anyone (docs/i18n.md).
+export default {
+  title: 'סטטיסטיקה',
+  sub: 'פרסים, טבלאות וכרטיסים אישיים',
+  matchesSoFar: { one: 'משחק אחד עד היום', two: 'שני משחקים עד היום', other: '{count} משחקים עד היום' },
+  games: { one: 'משחק אחד', two: 'שני משחקים', other: '{count} משחקים' },
+  empty: {
+    title: 'עוד אין משחקים שהסתיימו',
+    text: 'אחרי המשחק הראשון יופיעו כאן כתר השערים, הצמד הזהב ועוד.',
+  },
+  boardsTitle: 'טבלאות',
+  boards: {
+    goals: 'שערים',
+    assists: 'בישולים',
+    wins: 'ניצחונות',
+    rate: '% ניצחון',
+  },
+
+  // The six numbers on the card.
+  attrs: {
+    games: 'משחקים',
+    winRate: 'ניצחונות',
+    mvp: 'MVP',
+    goals: 'שערים',
+    assists: 'בישולים',
+    conceded: 'ספיגות למשחק',
+    bestStreak: 'שיא רצף',
+  },
+
+  awards: {
+    mvp: { title: 'מגנט ה-MVP', text: { one: 'MVP פעם אחת', two: 'פעמיים MVP', other: '{count} פעמים MVP' } },
+    scorer: { title: 'כתר השערים' },
+    assists: { title: 'מטבח הבישולים' },
+    hot: { title: 'על האש', text: { one: 'ניצחון אחד ברצף עכשיו', two: 'שני ניצחונות ברצף עכשיו', other: '{count} ניצחונות ברצף עכשיו' } },
+    lucky: { title: 'הקמע', text: '{pct}% ניצחונות' },
+    machine: { title: 'מכונת ניצחונות', text: 'שיא: {count} ברצף' },
+    duo: {
+      title: 'הצמד הזהב',
+      text: { one: 'ניצחון אחד מתוך {games} יחד', two: 'שני ניצחונות מתוך {games} יחד', other: '{count} ניצחונות מתוך {games} יחד' },
+    },
+    combo: { title: 'הקומבו', text: { one: 'גול אחד ביחד', two: 'שני גולים ביחד', other: '{count} גולים ביחד' } },
+    wall: { title: 'הקיר', text: '{n} ספיגות למשחק' },
+    iron: { title: 'ריאות של ברזל' },
+    unlucky: {
+      title: 'בלי מזל',
+      text: { one: 'הפסד אחד (היום הגדול עוד יבוא)', two: 'שני הפסדים (היום הגדול עוד יבוא)', other: '{count} הפסדים (היום הגדול עוד יבוא)' },
+    },
+  },
+
+  // Fun badges on the card.
+  traits: {
+    fresh: 'פנים חדשות',
+    gloves: 'ידיים של דבק',
+    sniper: 'עין של צלף',
+    passes: 'מסירות קסם',
+    defScorer: 'הגנה עם תיאבון לגולים',
+    attStrike: 'התקפה בשביתה',
+    train: 'רכבת ניצחונות',
+    charm: 'קמע',
+    optimist: 'אופטימיות נצחית',
+    regular: 'אף ערב לא מתפספס',
+    saver: 'הצלות בשער',
+  },
+
+  // One funny line per player, by position. Keep 3 per position in every language (same index per player).
+  taglines: {
+    att: ['שער באופק? בעיטה. לפעמים אפילו פגיעה.', 'מסירה? לא מכירים את המילה.', 'כתובת קבועה: הרחבה. שכר הדירה משולם בגולים.'],
+    mid: ['המוח של הקבוצה. לפחות לפי הגרסה הרשמית.', 'הכי הרבה ריצה, הכי הרבה תלונות.', 'כדורים מתחלקים כאן כמו חלה בשישי.'],
+    def: ['פה לא עוברים. לא תמיד בדרך חוקית.', 'הכדור עובר, מי שמאחוריו לא.', 'כל ניצחון מתחיל מאחור.'],
+    gk: ['יחסים מיוחדים עם הקורה.', 'שכיבה על הדשא, ברמה מקצועית.', 'צעקות על ההגנה. ובצדק.'],
+    any: ['בכל עמדה במגרש. בעיקר בעמדה של אחרים.', 'שימו בכל עמדה, זה יסתדר.', 'כל העמדות, אפס ויכוחים.'],
+  },
+
+  card: {
+    title: 'כרטיס אישי',
+    notFound: 'הכרטיס לא נמצא.',
+    nickname: '״{name}״',
+    share: '📤 שיתוף הכרטיס',
+    preparing: 'מכינים תמונה…',
+    shareText: 'הכרטיס של {name} ⚽',
+    ratingLater: 'הדירוג על הכרטיס מופיע אחרי 3 משחקים. הוא מחושב רק מתוצאות המשחקים.',
+    awardsTitle: 'התארים',
+  },
+
+  // Ranking players (Vote screen and the list in it).
+  vote: {
+    title: 'דירוג שחקנים',
+    hi: 'היי {name}',
+    sub: 'מי הכי טוב במגרש? סדרו מלמעלה למטה',
+    notFound: 'הקוד הזה לא נמצא. אפשר לבקש ממנהלי הקבוצה את הקישור האישי.',
+    privacy: '🔒 רק מנהלי הקבוצה רואים את הדירוג, ואין דירוג עצמי. גוררים מ-⠿ או משתמשים בחצים.',
+    untouched: 'אף שם לא זז, הרשימה עדיין לפי א"ב. דירוג כזה לא נספר.\n\nלשמור בכל זאת?',
+    savedNote: 'זה הדירוג השמור, והוא בתוקף. לא צריך לדרג שוב.',
+    newOnes: {
+      one: 'יש שם חדש בסוף הרשימה, אפשר למקם אותו.',
+      two: 'יש שני שמות חדשים בסוף הרשימה, אפשר למקם אותם.',
+      other: 'יש {count} שמות חדשים בסוף הרשימה, אפשר למקם אותם.',
+    },
+    best: 'הכי טובים',
+    worst: 'הכי פחות',
+    saved: '✓ נשמר!',
+    saveFailed: 'השמירה נכשלה, אפשר לנסות שוב',
+    update: 'עדכון הדירוג',
+    save: 'שמירת הדירוג',
+    moveUp: 'הזזת {name} למעלה',
+    moveDown: 'הזזת {name} למטה',
+    drag: 'גרירת {name}',
+  },
+
+  // The admin's ranking tab.
+  ranking: {
+    loadFailed: 'לא הצלחנו לטעון את הדירוג',
+    rankedForReal: '{n} מתוך {total} דירגו באמת',
+    notYet: 'עוד לא דירגו: {names}',
+    lazy: '⚠️ שמרו בלי להזיז אף שם (הדירוג שלהם לא נספר): {names}',
+    noVotes: 'עוד אין הצבעות. שלחו קישורים בלשונית "קישורים".',
+    votes: { one: 'דירוג אחד', two: 'שני דירוגים', other: '{count} דירוגים' },
+    avgRank: ', מקום ממוצע {avg}',
+    scoreNote: 'הציון: 100 = במקום הראשון אצל כולם, 0 = במקום האחרון אצל כולם. דירוג עצמי לא נספר.',
+    ballotsShow: 'מי דירג ואיך? (כמה שמות זזו בכל דירוג)',
+    ballotsHide: 'הסתרה',
+    ballotNone: 'עוד אין דירוג',
+    ballotRanked: 'דורגו {count}',
+    ballotLazy: '⚠️ אף שם לא זז',
+    ballotMoved: '{moved} מתוך {ranked} זזו',
+    ballotsNote: 'רק המספרים: הדירוגים עצמם נשארים סודיים, גם ממנהלי הקבוצה. דירוג שאף שם לא זז בו נשאר לפי א"ב, ולכן לא נספר. אפשר לבקש לדרג שוב.',
+  },
+}

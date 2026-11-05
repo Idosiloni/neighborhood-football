@@ -1,0 +1,101 @@
+// Texts of the admin area: the admin screen and its tabs, and the group settings fields
+// (also used when opening a group). American English; en-GB/admin.js has the British differences.
+export default {
+  title: 'Admin',
+  tabs: { players: 'Players', links: 'Links', ranking: 'Ranking', game: 'Group' },
+  lockedTitle: 'Only group admins can come in here',
+  lockedText: 'Whoever started the group is its admin, and can make other players admins too.',
+  sub: '{group} · Only admins see this screen',
+  subNoGroup: 'Only admins see this screen',
+  saved: '✓ Saved',
+  saveFailed: "Couldn't save",
+
+  players: {
+    add: '＋ Add player',
+    addList: '📋 Add a list',
+    // "14 active players, 9 joined on their own, 3 can play in goal"
+    summary: '{active}, {claimed}, {keepers}',
+    active: { one: '1 active player', other: '{count} active players' },
+    claimed: { one: '1 joined on their own', other: '{count} joined on their own' },
+    keepers: { one: '1 can play in goal', other: '{count} can play in goal' },
+    inactive: 'Inactive',
+    nickname: '“{nickname}”',
+    joined: '✓ Joined',
+    notJoined: 'Not joined yet',
+  },
+
+  form: {
+    editTitle: 'Edit player',
+    newTitle: 'New player',
+    photo: '📷 Photo',
+    removePhoto: 'Remove photo',
+    name: 'Name',
+    emoji: 'Emoji',
+    active: 'Active (plays with us)',
+    admin: 'Group admin 👑 (sees the ranking and manages players)',
+    reset: 'Reset sign-up (someone picked this name by mistake)',
+    delete: 'Delete player',
+    needName: 'Name required',
+    lastAdmin: 'The group needs at least one active admin. Make another player an admin first.',
+    cantDeleteLastAdmin: "You can't delete the group's last admin.",
+    deleteFailed: "Couldn't delete",
+    confirmReset: "Reset {name}'s sign-up? The name goes back on the join link's list, and their old personal link will stop working.",
+    confirmDelete: 'Delete {name} for good? The ranking sent from their link will be deleted too. If they just stopped coming, better to uncheck "Active".',
+  },
+
+  bulk: {
+    title: 'Add a list of players',
+    help: 'You can paste the list straight from WhatsApp (numbers, title and all). Everyone adds their own photo and position later, through their personal link.',
+    placeholder: 'Alex\nSam\nJordan',
+    toAdd: 'Adding {count}: {names}',
+    skipped: 'Already on the list: {names}',
+    failed: "Some players weren't saved. Check the list and try again.",
+    adding: 'Adding…',
+    add: { zero: 'Add', one: 'Add 1 player', other: 'Add {count} players' },
+  },
+
+  game: {
+    language: 'Group language',
+    languageHint: "What everyone sees, unless they picked their own language (in Me).",
+    languages: { he: 'עברית', en: 'English' },
+    groupName: 'Group name',
+    next: 'Next game',
+    cancelled: 'Canceled. Players see "No game this week".',
+    restore: 'Bring the game back',
+    noGameThisWeek: 'No game this week',
+    confirmCancel: 'Cancel the game on {when}? Everyone will see "No game this week".',
+    regular: 'Weekly game',
+    rules: 'Game rules',
+    rulesNote: 'A game already in progress keeps the rules it started with.',
+  },
+
+  links: {
+    title: 'Personal links',
+    help: 'Send each player their link in a private message: whoever has the link ranks as that player. Leaked? ↻ makes a new code.',
+    message: "Hi {name}! ⚽ Here's your personal link for {group}.\nIt's just for you, so please don't pass it on.\n{link}",
+    theGroup: 'the group',
+    loadFailed: "Couldn't load the personal codes: {error}",
+    unknownError: 'unknown error',
+    noCode: 'No code',
+    send: 'Send',
+    copyLabel: "Copy {name}'s link",
+    newLabel: 'New code for {name}',
+    confirmNew: 'Make a new code for {name}? The old link will stop working. Their ranking is kept.',
+  },
+
+  // The group's settings (admin → "Group", and when opening a group).
+  rules: {
+    day: 'Which day?',
+    time: 'What time?',
+    venue: 'Where? (optional)',
+    venuePlaceholder: 'e.g. Riverside Park field',
+    teamSize: 'How many players per team?',
+    minutes: 'Minutes per game?',
+    winGoals: 'First to how many goals wins?',
+    goalsChip: { one: '1 goal', other: '{count} goals' },
+    noGoalLimit: 'No limit, just the clock',
+    // "6v6, 7 minutes or first to 3 goals. Tie: 2 minutes of extra time, then golden goal. …"
+    summaryGoals: '{size}v{size}, {minutes} minutes or first to {goals} goals. Tie: {extra} minutes of extra time, then {goldenGoal}. Teams can be picked once at least {min} players are here; the rest wait on the sideline.',
+    summaryTime: '{size}v{size}, {minutes} minutes per game. Tie: {extra} minutes of extra time, then {goldenGoal}. Teams can be picked once at least {min} players are here; the rest wait on the sideline.',
+  },
+}

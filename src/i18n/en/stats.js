@@ -1,0 +1,122 @@
+// Texts of the stats area (owner: see docs/i18n.md). Same keys in he/ and en/.
+// American English; en-GB/stats.js has the British differences.
+export default {
+  title: 'Stats',
+  sub: 'Awards, leaderboards and player cards',
+  matchesSoFar: { one: '1 game so far', other: '{count} games so far' },
+  games: { one: '1 game', other: '{count} games' },
+  empty: {
+    title: 'No finished games yet',
+    text: 'After the first game, the Golden Boot, the dynamic duo and more show up here.',
+  },
+  boardsTitle: 'Leaderboards',
+  boards: {
+    goals: 'Goals',
+    assists: 'Assists',
+    wins: 'Wins',
+    rate: 'Win %',
+  },
+
+  // The six numbers on the card.
+  attrs: {
+    games: 'Games',
+    winRate: 'Wins',
+    mvp: 'MVP',
+    goals: 'Goals',
+    assists: 'Assists',
+    conceded: 'Conceded/game',
+    bestStreak: 'Best streak',
+  },
+
+  awards: {
+    mvp: { title: 'MVP magnet', text: { one: 'MVP once', other: 'MVP {count} times' } },
+    scorer: { title: 'Golden Boot' },
+    assists: { title: 'Playmaker' },
+    hot: { title: 'On fire', text: { one: '1 win in a row and counting', other: '{count} wins in a row and counting' } },
+    lucky: { title: 'Lucky charm', text: '{pct}% win rate' },
+    machine: { title: 'Win machine', text: 'Best: {count} in a row' },
+    duo: { title: 'Dynamic duo', text: { one: '1 win in {games} games together', other: '{count} wins in {games} games together' } },
+    combo: { title: 'The combo', text: { one: '1 goal together', other: '{count} goals together' } },
+    wall: { title: 'The wall', text: '{n} conceded per game' },
+    iron: { title: 'Iron lungs' },
+    unlucky: { title: 'Cursed', text: { one: '1 loss (the comeback is coming)', other: '{count} losses (the comeback is coming)' } },
+  },
+
+  // Fun badges on the card.
+  traits: {
+    fresh: 'Fresh face',
+    gloves: 'Sticky gloves',
+    sniper: 'Sniper',
+    passes: 'Pass wizard',
+    defScorer: 'Defender with striker dreams',
+    attStrike: 'Striker on strike',
+    train: 'Win train',
+    charm: 'Lucky charm',
+    optimist: 'Eternal optimist',
+    regular: 'Never misses a night',
+    saver: 'Emergency goalie',
+  },
+
+  // One funny line per player, by position. Keep 3 per position in every language (same index per player).
+  taglines: {
+    att: ['Sees the goal, shoots. Sometimes it even goes in.', 'Has heard of passing. Not a fan.', 'Lives in the box. Pays rent in goals.'],
+    mid: ['The brains of the team. Self-reported.', 'Runs more than anyone. Complains more than anyone.', 'Hands out passes like Halloween candy.'],
+    def: ['Nobody gets past. The rulebook is more of a suggestion.', 'The ball might get past. You won’t.', 'Every win starts at the back. Just ask them.'],
+    gk: ['On a first-name basis with the crossbar.', 'Lies down on the grass. Professionally.', 'Yells at the defense. Is usually right.'],
+    any: ['Plays every position. Mostly someone else’s.', 'Put them anywhere. They’ll figure it out.', 'Every position, zero complaints.'],
+  },
+
+  card: {
+    title: 'Player card',
+    notFound: 'Card not found.',
+    nickname: '“{name}”',
+    share: '📤 Share the card',
+    preparing: 'Making the image…',
+    shareText: '{name}’s card ⚽',
+    ratingLater: 'The card rating shows up after 3 games. It comes from game results only.',
+    awardsTitle: 'Awards',
+  },
+
+  // Ranking players (Vote screen and the list in it).
+  vote: {
+    title: 'Rank the players',
+    hi: 'Hey {name}',
+    sub: 'Who’s the best on the field? Order them top to bottom',
+    notFound: 'This code wasn’t found. Ask your group’s admins for your personal link.',
+    privacy: '🔒 Only the group’s admins see the rankings, and you don’t rank yourself. Drag by ⠿ or use the arrows.',
+    untouched: 'Nobody was moved, so the list is still alphabetical. A ranking like that doesn’t count.\n\nSave anyway?',
+    savedNote: 'This is your saved ranking and it counts. No need to rank again.',
+    newOnes: {
+      one: 'There’s a new name at the bottom, you can place them.',
+      other: 'There are {count} new names at the bottom, you can place them.',
+    },
+    best: 'Top',
+    worst: 'Bottom',
+    saved: '✓ Saved!',
+    saveFailed: 'Couldn’t save, please try again',
+    update: 'Update ranking',
+    save: 'Save ranking',
+    moveUp: 'Move {name} up',
+    moveDown: 'Move {name} down',
+    drag: 'Drag {name}',
+  },
+
+  // The admin's ranking tab.
+  ranking: {
+    loadFailed: 'Couldn’t load the rankings',
+    rankedForReal: '{n} of {total} actually ranked',
+    notYet: 'Haven’t ranked yet: {names}',
+    lazy: '⚠️ Saved without moving anyone (their ranking doesn’t count): {names}',
+    noVotes: 'No votes yet. Send the links from the “Links” tab.',
+    votes: { one: '1 vote', other: '{count} votes' },
+    avgRank: ', avg. spot {avg}',
+    scoreNote: 'Score: 100 = everyone put them first, 0 = everyone put them last. Nobody can rank themselves.',
+    ballotsShow: 'Who ranked, and how? (how many names each one moved)',
+    ballotsHide: 'Hide',
+    ballotNone: 'Hasn’t ranked yet',
+    ballotRanked: 'Ranked {count}',
+    ballotLazy: '⚠️ Didn’t move anyone',
+    ballotMoved: 'Moved {moved} of {ranked}',
+    ballotsNote: 'Numbers only: the rankings themselves stay secret, from the admins too. A ranking where nobody was moved is just alphabetical, so it doesn’t count. You can ask them to rank again.',
+  },
+}

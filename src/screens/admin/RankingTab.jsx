@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../data'
 import Avatar from '../../components/Avatar'
+import { compareNames, listOf, t, tx } from '../../i18n'
 
 export default function RankingTab({ players }) {
   const [rows, setRows] = useState()
@@ -12,8 +13,8 @@ export default function RankingTab({ players }) {
     api.ballotStatus().then(setStatus, () => setStatus([])) // an older server has no status: just skip it
   }, [players])
 
-  if (error) return <p className="err">לא הצלחתי לטעון את הדירוג</p>
-  if (!rows) return <p className="center">טוען…</p>
+  if (error) return <p className="err">{t('stats.ranking.loadFailed')}</p>
+  if (!rows) return <p className="center">{t('common.loading')}</p>
 
   const byId = new Map(players.map((p) => [p.id, p]))
   const list = rows
@@ -27,16 +28,16 @@ export default function RankingTab({ players }) {
   return (
     <section className="stack">
       <div className="vote-count">
-        <span><strong>{voted.length - lazy.length}</strong> מתוך {list.length} דירגו באמת</span>
-        {missing.length > 0 && <small>עוד לא דירגו: {missing.map((r) => r.player.name).join(', ')}</small>}
+        <span>{tx('stats.ranking.rankedForReal', { n: <strong>{voted.length - lazy.length}</strong>, total: list.length })}</span>
+        {missing.length > 0 && <small>{t('stats.ranking.notYet', { names: listOf(missing.map((r) => r.player.name)) })}</small>}
         {lazy.length > 0 && (
-          <small className="warn">⚠️ שמרו בלי להזיז אף שחקן (הדירוג שלהם לא נספר): {lazy.map((b) => byId.get(b.player_id).name).join(', ')}</small>
+          <small className="warn">{t('stats.ranking.lazy', { names: listOf(lazy.map((b) => byId.get(b.player_id).name)) })}</small>
         )}
       </div>
       {status.length > 0 && <BallotList status={status} byId={byId} />}
 
       {voted.length === 0 ? (
-        <p className="muted center">עוד אין הצבעות. שלח קישורים בלשונית "קישורים".</p>
+        <p className="muted center">{t('stats.ranking.noVotes')}</p>
       ) : (
         <ol className="rating-list">
           {list.map((r, i) => (
@@ -45,7 +46,7 @@ export default function RankingTab({ players }) {
               <Avatar player={r.player} size={40} />
               <span className="rank-name">
                 {r.player.name}
-                <small>{r.votes} מדרגים{r.avg_rank != null ? `, מקום ממוצע ${r.avg_rank}` : ''}</small>
+                <small>{t('stats.ranking.votes', { count: r.votes })}{r.avg_rank != null ? t('stats.ranking.avgRank', { avg: r.avg_rank }) : ''}</small>
               </span>
               <span className="score">
                 <b>{r.score == null ? '–' : Math.round(r.score)}</b>
@@ -55,9 +56,7 @@ export default function RankingTab({ players }) {
           ))}
         </ol>
       )}
-      <p className="muted small">
-        הציון: 100 = כולם שמו אותו ראשון, 0 = כולם שמו אותו אחרון. ההצבעה של שחקן על עצמו לא נספרת.
-      </p>
+      <p className="muted small">{t('stats.ranking.scoreNote')}</p>
     </section>
   )
 }
@@ -68,12 +67,12 @@ function BallotList({ status, byId }) {
   const rows = status
     .filter((b) => byId.has(b.player_id))
     .map((b) => ({ ...b, player: byId.get(b.player_id) }))
-    .sort((x, y) => (x.moved ?? -1) - (y.moved ?? -1) || x.player.name.localeCompare(y.player.name, 'he'))
+    .sort((x, y) => (x.moved ?? -1) - (y.moved ?? -1) || compareNames(x.player.name, y.player.name))
 
   return (
     <div className="card stack">
       <button type="button" className="link-btn" onClick={() => setOpen(!open)}>
-        {open ? 'הסתר' : 'מי דירג ואיך? (כמה שחקנים כל אחד הזיז)'}
+        {open ? t('stats.ranking.ballotsHide') : t('stats.ranking.ballotsShow')}
       </button>
       {open && (
         <ul className="ballot-list">
@@ -83,18 +82,18 @@ function BallotList({ status, byId }) {
               <span>{b.player.name}</span>
               <small>
                 {b.ranked == null
-                  ? 'עוד לא דירג'
+                  ? t('stats.ranking.ballotNone')
                   : b.moved == null
-                    ? `דירג ${b.ranked}`
+                    ? t('stats.ranking.ballotRanked', { count: b.ranked })
                     : b.moved === 0 && b.ranked >= 3
-                      ? '⚠️ לא הזיז אף אחד'
-                      : `הזיז ${b.moved} מתוך ${b.ranked}`}
+                      ? t('stats.ranking.ballotLazy')
+                      : t('stats.ranking.ballotMoved', { moved: b.moved, ranked: b.ranked })}
               </small>
             </li>
           ))}
         </ul>
       )}
-      {open && <p className="muted small">רק המספרים: מה כל אחד דירג נשאר סודי, גם ממך. מי שלא הזיז אף אחד, הדירוג שלו פשוט לפי א"ב ולכן לא נספר. אפשר לבקש ממנו לדרג שוב.</p>}
+      {open && <p className="muted small">{t('stats.ranking.ballotsNote')}</p>}
     </div>
   )
 }

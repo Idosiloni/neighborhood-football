@@ -1,13 +1,14 @@
 import { sport } from '../sports/index.js'
+import { t } from '../i18n/index.js'
 
-// A player picks every position he plays. Only goalkeeper = goalkeeper only (stays in goal,
+// A player picks every position they play. Only goalkeeper = goalkeeper only (stays in goal,
 // one per team). Nothing picked = plays anywhere (not in goal). Same rules as the database.
 // The positions themselves come from the sport (src/sports/).
 export const POSITIONS = sport.positions
 const ORDER = POSITIONS.map((p) => p.id)
 export const FIELD = POSITIONS.filter((p) => !p.keeper).map((p) => p.id)
 
-// His positions, also for players saved before the list existed (one position + "can play in goal").
+// A player's positions, also for players saved before the list existed (one position + "can play in goal").
 export function positionsOf(player) {
   if (Array.isArray(player?.positions) && (player.positions.length || (player.position === 'any' && !player.can_gk))) {
     return ORDER.filter((id) => player.positions.includes(id))
@@ -31,13 +32,13 @@ export function fromPositions(positions) {
   }
 }
 
-// "הגנה · קישור", "שוער קבוע", "כל מקום". short: for the card ("בלם/קשר").
+// "הגנה · קישור", "שוער קבוע", "כל מקום" (or in English). short: for the card ("בלם/קשר", "DEF/MID").
 export function positionsText(player, { short = false } = {}) {
   const list = positionsOf(player)
-  if (isKeeperOnly(list)) return short ? 'שוער' : 'שוער קבוע'
+  if (isKeeperOnly(list)) return t(short ? 'sport.keeperOnlyShort' : 'sport.keeperOnly')
   const field = list.filter((id) => id !== 'gk')
   if (field.length === 0 || field.length === FIELD.length) {
-    return list.includes('gk') && !short ? 'כל מקום, גם בשער' : 'כל מקום'
+    return t(list.includes('gk') && !short ? 'sport.anywhereAndGoal' : 'sport.anywhere')
   }
   const labels = list.map((id) => POSITIONS.find((p) => p.id === id)[short ? 'short' : 'label'])
   return labels.join(short ? '/' : ' · ')

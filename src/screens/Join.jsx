@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../data'
 import { useLoad } from '../lib/hooks'
 import { myGroups, openGroup, setMyCode } from '../lib/identity'
@@ -10,17 +10,19 @@ import PageHeader from '../components/PageHeader'
 import ProfileForm from '../components/ProfileForm'
 import NeedsUpdate from '../components/NeedsUpdate'
 import Avatar from '../components/Avatar'
+import { t, setGroupLanguage } from '../i18n'
 
+// The server's error keys and their texts (onboarding.errors.*).
 const ERRORS = {
-  'already claimed': 'מישהו כבר נרשם בשם הזה. אם זה אתה, בקש ממנהל הקבוצה את הקישור האישי שלך.',
-  'name taken': 'יש כבר שחקן בשם הזה. אם זה אתה, חזור לרשימה ובחר אותו. אם לא, הוסף משהו לשם (למשל אות של שם משפחה).',
-  'invalid join code': 'קישור ההצטרפות הזה כבר לא תקף. בקש ממנהל הקבוצה קישור חדש.',
-  'name required': 'צריך שם.',
-  'too many players': 'הקבוצה מלאה.',
+  'already claimed': 'alreadyClaimed',
+  'name taken': 'nameTaken',
+  'invalid join code': 'invalidJoinCode',
+  'name required': 'nameRequired',
+  'too many players': 'groupFull',
 }
 const friendly = (err) => {
   const key = Object.keys(ERRORS).find((k) => err.message?.includes(k))
-  return new Error(key ? ERRORS[key] : 'משהו השתבש. נסה שוב.')
+  return new Error(key ? t(`onboarding.errors.${ERRORS[key]}`) : t('common.failed'))
 }
 
 // Opened from the group's join link. Regulars the admin already added pick their own name;
@@ -35,7 +37,7 @@ function JoinCodeForm() {
   const [value, setValue] = useState('')
   return (
     <main className="page">
-      <PageHeader title="הצטרפות לקבוצה" sub="את הקוד מקבלים ממנהל הקבוצה או מחבר בקבוצה" back="#/" />
+      <PageHeader title={t('onboarding.join.title')} sub={t('onboarding.join.codeSub')} back="#/" />
       <form
         className="card stack"
         onSubmit={(e) => {
@@ -44,8 +46,8 @@ function JoinCodeForm() {
         }}
       >
         <input className="input code-input" value={value} onChange={(e) => setValue(e.target.value.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 8))}
-          autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="ab3k9m" dir="ltr" aria-label="קוד הצטרפות" autoFocus />
-        <button className="btn big" disabled={value.length < 4}>המשך</button>
+          autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="ab3k9m" dir="ltr" aria-label={t('onboarding.join.codeLabel')} autoFocus />
+        <button className="btn big" disabled={value.length < 4}>{t('common.continue')}</button>
       </form>
     </main>
   )
@@ -54,6 +56,11 @@ function JoinCodeForm() {
 function JoinWithCode({ joinCode }) {
   const ready = useSchemaReady()
   const { data, error } = useLoad(async () => ({ group: await api.groupPreview(joinCode) }), [joinCode])
+  // Someone opening the group's link sees it in the group's language (unless this phone picked one).
+  const lang = data?.group?.lang
+  useEffect(() => {
+    if (lang) setGroupLanguage(lang)
+  }, [lang])
   const [picked, setPicked] = useState(undefined) // undefined: choosing, null: new name, player: claiming
 
   const done = (myCode) => {
@@ -65,23 +72,23 @@ function JoinWithCode({ joinCode }) {
   if (ready === false) {
     return (
       <main className="page">
-        <PageHeader title="הצטרפות" />
+        <PageHeader title={t('onboarding.join.short')} />
         <NeedsUpdate />
       </main>
     )
   }
-  if (error && !data) return <main className="page"><PageHeader title="הצטרפות" back="#/" /><p className="err center">אין חיבור כרגע. נסה שוב עוד רגע.</p></main>
-  if (!data) return <main className="page"><PageHeader title="הצטרפות" /><p className="center muted">טוען…</p></main>
+  if (error && !data) return <main className="page"><PageHeader title={t('onboarding.join.short')} back="#/" /><p className="err center">{t('common.offline')}</p></main>
+  if (!data) return <main className="page"><PageHeader title={t('onboarding.join.short')} /><p className="center muted">{t('common.loading')}</p></main>
 
   if (!data.group) {
     return (
       <main className="page">
-        <PageHeader title="הצטרפות" back="#/join" />
+        <PageHeader title={t('onboarding.join.short')} back="#/join" />
         <div className="card empty">
           <div className="empty-emoji">🤔</div>
-          <strong>לא מצאתי קבוצה עם הקוד הזה</strong>
-          <p className="muted">אולי הוקלד לא נכון, או שמנהל הקבוצה החליף את הקישור. בקש ממנו קישור חדש.</p>
-          <a className="btn" href="#/join">לנסות קוד אחר</a>
+          <strong>{t('onboarding.join.notFound')}</strong>
+          <p className="muted">{t('onboarding.join.notFoundHint')}</p>
+          <a className="btn" href="#/join">{t('onboarding.join.tryAnother')}</a>
         </div>
       </main>
     )
@@ -94,8 +101,8 @@ function JoinWithCode({ joinCode }) {
         <PageHeader title={data.group.name} />
         <div className="card empty">
           <div className="empty-emoji">✅</div>
-          <strong>הטלפון הזה כבר בקבוצה</strong>
-          <button className="btn" onClick={() => openGroup(already.code)}>לקבוצה</button>
+          <strong>{t('onboarding.join.alreadyIn')}</strong>
+          <button className="btn" onClick={() => openGroup(already.code)}>{t('onboarding.join.toGroup')}</button>
         </div>
       </main>
     )
@@ -106,9 +113,9 @@ function JoinWithCode({ joinCode }) {
   if (picked === undefined && open.length > 0) {
     return (
       <main className="page">
-        <PageHeader title={`ברוך הבא ל${data.group.name}`} sub="פעם אחת נרשמים, ואז הטלפון זוכר אותך" />
+        <PageHeader title={t('onboarding.join.welcome', { group: data.group.name })} sub={t('onboarding.join.welcomeSub')} />
         <section className="stack">
-          <h2 className="section-title">אתה ברשימה? בחר את השם שלך</h2>
+          <h2 className="section-title">{t('onboarding.join.pickName')}</h2>
           <div className="name-grid">
             {open.map((p) => (
               <button key={p.id} className="name-pick" onClick={() => setPicked(p)}>
@@ -118,7 +125,7 @@ function JoinWithCode({ joinCode }) {
             ))}
           </div>
         </section>
-        <button className="btn ghost big" onClick={() => setPicked(null)}>אני לא ברשימה, הרשמה חדשה</button>
+        <button className="btn ghost big" onClick={() => setPicked(null)}>{t('onboarding.join.notOnList')}</button>
       </main>
     )
   }
@@ -126,10 +133,10 @@ function JoinWithCode({ joinCode }) {
   if (picked) {
     return (
       <main className="page">
-        <PageHeader title={`היי ${picked.name}!`} sub="עוד רגע: תמונה, עמדה וכינוי" />
+        <PageHeader title={t('onboarding.join.hi', { name: picked.name })} sub={t('onboarding.join.hiSub')} />
         <ProfileForm
           initial={{ emoji: '⚽', photo: null, position: 'any', can_gk: false, nickname: '', ...picked }}
-          submitLabel="זה אני, המשך ⚽"
+          submitLabel={t('onboarding.join.itsMe')}
           onSubmit={async (f) => {
             let myCode
             try {
@@ -140,7 +147,7 @@ function JoinWithCode({ joinCode }) {
             done(myCode)
           }}
         />
-        <button className="link-btn" onClick={() => setPicked(undefined)}>זה לא אני, חזרה לרשימה</button>
+        <button className="link-btn" onClick={() => setPicked(undefined)}>{t('onboarding.join.notMe')}</button>
       </main>
     )
   }
@@ -149,14 +156,14 @@ function JoinWithCode({ joinCode }) {
 
   return (
     <main className="page">
-      <PageHeader title="הרשמה חדשה" sub={`מצטרפים ל${data.group.name}. ממלאים פעם אחת, ואז הטלפון זוכר אותך`} />
+      <PageHeader title={t('onboarding.join.newTitle')} sub={t('onboarding.join.newSub', { group: data.group.name })} />
       <ProfileForm
         withName
         initial={{ name: '', emoji: '⚽', photo: null, position: 'any', can_gk: false, nickname: '' }}
-        submitLabel="הצטרף ⚽"
+        submitLabel={t('onboarding.join.submit')}
         onSubmit={async (f) => {
           if (openNames.has(normalizeName(f.name))) {
-            throw new Error('השם הזה כבר ברשימה. חזור לרשימה ובחר אותו שם.')
+            throw new Error(t('onboarding.errors.nameOnList'))
           }
           let myCode
           try {
@@ -167,7 +174,7 @@ function JoinWithCode({ joinCode }) {
           done(myCode)
         }}
       />
-      {open.length > 0 && <button className="link-btn" onClick={() => setPicked(undefined)}>חזרה לרשימת השמות</button>}
+      {open.length > 0 && <button className="link-btn" onClick={() => setPicked(undefined)}>{t('onboarding.join.backToNames')}</button>}
     </main>
   )
 }

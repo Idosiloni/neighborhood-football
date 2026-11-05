@@ -18,6 +18,7 @@ import { normalizeName, parseNames } from '../lib/parseList'
 import Sheet from '../components/Sheet'
 import Lineup from '../components/Lineup'
 import { play } from '../lib/sound'
+import { t } from '../i18n'
 
 export default function Tonight() {
   const ready = useSchemaReady()
@@ -25,8 +26,8 @@ export default function Tonight() {
 
   return (
     <main className="page">
-      <PageHeader title="הערב" sub={dayLabel(day)} />
-      {ready === false ? <NeedsUpdate /> : ready ? <TonightBody day={day} /> : <p className="center muted">טוען…</p>}
+      <PageHeader title={t('match.tonight')} sub={dayLabel(day)} />
+      {ready === false ? <NeedsUpdate /> : ready ? <TonightBody day={day} /> : <p className="center muted">{t('common.loading')}</p>}
     </main>
   )
 }
@@ -55,8 +56,8 @@ function TonightBody({ day }) {
     return { players, byId, present, matches, night, attendance, history }
   }, [data])
 
-  if (error && !data) return <p className="err center">אין חיבור כרגע. נסה שוב עוד רגע.</p>
-  if (!view) return <p className="center muted">טוען…</p>
+  if (error && !data) return <p className="err center">{t('common.offline')}</p>
+  if (!view) return <p className="center muted">{t('common.loading')}</p>
 
   const { players, byId, present, matches, night, attendance, history } = view
   const live = matches.find((m) => m.status === 'live')
@@ -85,11 +86,11 @@ function TonightBody({ day }) {
       {!live && last?.status === 'finished' && !builder && (
         <div className="card cta-card">
           <div>
-            <strong>משחק {last.num} הסתיים</strong>
-            <p className="muted">המנצחת נשארת, הממתינים נכנסים.</p>
+            <strong>{t('match.numFinished', { num: last.num })}</strong>
+            <p className="muted">{t('match.winnerStays')}</p>
           </div>
           {member && (
-            <a className="btn" href={`#/next/${last.id}`}>המשחק הבא <Icon name="forward" size={18} /></a>
+            <a className="btn" href={`#/next/${last.id}`}>{t('match.nextMatch')} <Icon name="forward" size={18} /></a>
           )}
         </div>
       )}
@@ -97,14 +98,14 @@ function TonightBody({ day }) {
       {!live && (
         <section className="card stack">
           <div className="section-head">
-            <h2>מי הגיע?</h2>
-            <span className="pill">{present.size} הגיעו</span>
+            <h2>{t('match.whoCame')}</h2>
+            <span className="pill">{t('match.cameCount', { count: present.size })}</span>
           </div>
           {member && (
-            <button className="btn ghost small" onClick={() => setPasting(true)}>📋 הדבק את הרשימה מוואטסאפ</button>
+            <button className="btn ghost small" onClick={() => setPasting(true)}>{t('match.pasteButton')}</button>
           )}
           {member === false && (
-            <p className="note">כדי לסמן מי הגיע ולנהל משחקים, פתח את הקישור האישי שלך פעם אחת (או היכנס בלשונית "אני").</p>
+            <p className="note">{t('match.needLink')}</p>
           )}
           <div className="attend-grid">
             {grid.map((p) => (
@@ -122,14 +123,14 @@ function TonightBody({ day }) {
               </button>
             ))}
           </div>
-          {active.length === 0 && <p className="muted center">עוד אין שחקנים. מזמינים אותם מכפתור ההזמנה בדף הבית.</p>}
+          {active.length === 0 && <p className="muted center">{t('match.noPlayers')}</p>}
 
           {member && !builder && (matches.length === 0 || last?.status === 'finished') && (
             <button className="btn big" disabled={present.size < MIN_PLAYERS} onClick={() => setBuilder(true)}>
-              {matches.length === 0 ? '⚽ חלק לקבוצות' : 'חלוקה חדשה מאפס'}
+              {matches.length === 0 ? t('match.splitTeams') : t('match.splitAgain')}
             </button>
           )}
-          {member && present.size < MIN_PLAYERS && <p className="muted center small">צריך לפחות {MIN_PLAYERS} שחקנים כדי לחלק.</p>}
+          {member && present.size < MIN_PLAYERS && <p className="muted center small">{t('match.needPlayers', { count: MIN_PLAYERS })}</p>}
         </section>
       )}
 
@@ -161,7 +162,7 @@ function TonightBody({ day }) {
 
       {matches.length > 0 && (
         <section className="stack">
-          <h2 className="section-title">המשחקים הערב</h2>
+          <h2 className="section-title">{t('match.tonightMatches')}</h2>
           {[...matches].reverse().map((m) => <MatchRow key={m.id} match={m} goals={history.goals} />)}
         </section>
       )}
@@ -174,13 +175,13 @@ function LiveCard({ match, goals }) {
   const b = goals.filter((g) => g.match_id === match.id && g.team === 'b').length
   return (
     <a className="card live-card" href={`#/match/${match.id}`}>
-      <span className="live-dot">משחק {match.num} חי</span>
+      <span className="live-dot">{t('match.live', { num: match.num })}</span>
       <div className="live-score">
         <span className="team-a-text">{a}</span>
         <span className="muted">–</span>
         <span className="team-b-text">{b}</span>
       </div>
-      <span className="muted small">לחץ לצפייה</span>
+      <span className="muted small">{t('match.tapToWatch')}</span>
     </a>
   )
 }
@@ -205,7 +206,7 @@ function TeamBuilder({ night, attendance, byId, history, nextNum, teamSize, onCa
         setState('idle')
       } catch {
         setState('error')
-        setMessage('לא הצלחתי לחלק. נסה שוב.')
+        setMessage(t('match.splitFailed'))
       }
     },
     [night.id],
@@ -225,23 +226,23 @@ function TeamBuilder({ night, attendance, byId, history, nextNum, teamSize, onCa
       go(`/match/${m.id}`)
     } catch {
       setState('error')
-      setMessage('משחק כבר נפתח בטלפון אחר. רענן את הדף.')
+      setMessage(t('match.alreadyStarted'))
     }
   }
 
   return (
     <section className="card stack">
       <div className="section-head">
-        <h2>הקבוצות</h2>
-        <button className="link-btn" onClick={onCancel}>ביטול</button>
+        <h2>{t('match.teams')}</h2>
+        <button className="link-btn" onClick={onCancel}>{t('common.cancel')}</button>
       </div>
       {!groups ? (
-        <p className="center muted">{state === 'error' ? message : 'מחלק…'}</p>
+        <p className="center muted">{state === 'error' ? message : t('match.splitting')}</p>
       ) : (
         <>
           <div className="view-toggle">
-            <button className={view === 'pitch' ? 'on' : ''} onClick={() => setView('pitch')}>⚽ מגרש</button>
-            <button className={view === 'edit' ? 'on' : ''} onClick={() => setView('edit')}>✏️ החלפות</button>
+            <button className={view === 'pitch' ? 'on' : ''} onClick={() => setView('pitch')}>{t('match.viewPitch')}</button>
+            <button className={view === 'edit' ? 'on' : ''} onClick={() => setView('edit')}>{t('match.viewEdit')}</button>
           </div>
           {view === 'pitch' ? (
             <Lineup key={dealt} teamA={groups.a} teamB={groups.b} byId={byId} deal />
@@ -249,26 +250,26 @@ function TeamBuilder({ night, attendance, byId, history, nextNum, teamSize, onCa
             <TeamBoard groups={groups} playersById={byId} onChange={setGroups} editable />
           )}
           {view === 'pitch' && groups.bench.length > 0 && (
-            <p className="muted small">ממתינים: {groups.bench.map((id) => byId[id]?.name).filter(Boolean).join(', ')}</p>
+            <p className="muted small">{t('match.waiting', { names: groups.bench.map((id) => byId[id]?.name).filter(Boolean).join(', ') })}</p>
           )}
           {state === 'error' && <p className="err">{message}</p>}
           <div className="row">
             <button className="btn ghost" onClick={() => roll(groups.bench)} disabled={state !== 'idle' && state !== 'error'}>
-              <Icon name="dice" size={18} /> חלוקה אחרת
+              <Icon name="dice" size={18} /> {t('match.reroll')}
             </button>
             <button className="btn" onClick={start} disabled={state === 'starting' || groups.a.length === 0 || groups.b.length === 0}>
-              <Icon name="play" size={18} /> התחל משחק
+              <Icon name="play" size={18} /> {t('match.startMatch')}
             </button>
           </div>
-          {view === 'edit' && groups.bench.length > 0 && <p className="muted small">ממתינים: מי שישב הכי מעט עד היום. אפשר לשנות.</p>}
+          {view === 'edit' && groups.bench.length > 0 && <p className="muted small">{t('match.benchNote')}</p>}
         </>
       )}
     </section>
   )
 }
 
-// Loose match: ignores hidden characters, spaces, hyphens and quotes ("בר-לב" = "בר לב").
-const matchKey = (name) => normalizeName(name).replace(/[-'"׳״.\s]/g, '')
+// Loose match: ignores hidden characters, spaces, hyphens and quotes ("בר-לב" = "בר לב", "O'Brien" = "OBrien").
+const matchKey = (name) => normalizeName(name).replace(/[-'"\u05F3\u05F4\u2018\u2019.\s]/g, '')
 
 // Paste the WhatsApp sign-up list: known names are marked present in list order;
 // an admin can add the unknown ones as new players on the spot.
@@ -295,27 +296,27 @@ function PasteList({ players, onClose, onDone }) {
       }
       await onDone(ids)
     } catch {
-      setError('משהו לא נשמר. נסה שוב.')
+      setError(t('match.saveFailed'))
       setBusy(false)
     }
   }
 
   return (
-    <Sheet title="הדבקת רשימה" onClose={onClose}>
+    <Sheet title={t('match.pasteTitle')} onClose={onClose}>
       <div className="stack">
-        <p className="muted small">מעתיקים את הרשימה מהקבוצה ומדביקים כאן כמו שהיא. הסדר ברשימה הוא סדר ההגעה, אז האחרונים ברשימה ימתינו ראשונים.</p>
-        <textarea className="input textarea" rows={7} value={text} onChange={(e) => setText(e.target.value)} placeholder={'שבת 9:30\n1. אבי\n2. ברק\n…'} />
-        {known.length > 0 && <p className="ok">יסומנו שהגיעו ({known.length}): {known.map((p) => p.name).join(', ')}</p>}
+        <p className="muted small">{t('match.pasteHelp')}</p>
+        <textarea className="input textarea" rows={7} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('match.pastePlaceholder')} />
+        {known.length > 0 && <p className="ok">{t('match.willMark', { count: known.length, names: known.map((p) => p.name).join(', ') })}</p>}
         {unknown.length > 0 && (
           <p className={admin ? 'muted small' : 'err'}>
             {admin
-              ? `שחקנים חדשים שיתווספו (${unknown.length}): ${unknown.join(', ')}`
-              : `לא מכיר את: ${unknown.join(', ')}. מנהל הקבוצה צריך להוסיף אותם (או לכתוב את השם כמו באפליקציה).`}
+              ? t('match.willAdd', { count: unknown.length, names: unknown.join(', ') })
+              : t('match.unknownNames', { names: unknown.join(', ') })}
           </p>
         )}
         {error && <p className="err">{error}</p>}
         <button className="btn big" onClick={confirm} disabled={busy || names.length === 0 || (known.length === 0 && !admin)}>
-          {busy ? 'מסמן…' : 'סמן שהגיעו'}
+          {busy ? t('match.marking') : t('match.markPresent')}
         </button>
       </div>
     </Sheet>

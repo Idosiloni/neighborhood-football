@@ -1,4 +1,5 @@
 import { sport } from '../sports/index.js'
+import { dayName, formatKickoff, shortDate, t, tl } from '../i18n/index.js'
 
 // Local calendar day as YYYY-MM-DD (a late game still belongs to the evening it started).
 export function today() {
@@ -6,12 +7,11 @@ export function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
-
+// "יום שבת 7.11" / "Saturday 11/7"
 export function dayLabel(day) {
   const [y, m, d] = day.split('-').map(Number)
   const date = new Date(y, m - 1, d)
-  return `יום ${DAYS[date.getDay()]} ${d}.${m}`
+  return t('common.dayLabel', { day: dayName(date.getDay()), date: shortDate(m, d) })
 }
 
 // A group's settings before the server answers (and the defaults of a new group): Saturday 9:30
@@ -20,7 +20,8 @@ export const GAME = { weekday: 6, kickoff: '9:30', ...sport.rules, venue: null }
 // Only the settings fields of a group (or a form), leaving out any that are missing.
 export const pickSettings = (o) => Object.fromEntries(Object.keys(GAME).filter((k) => o[k] !== undefined).map((k) => [k, o[k]]))
 
-export const DAY_NAMES = DAYS
+// The day names, 0 = Sunday, in the current language (a function: the language can change).
+export const dayNames = () => tl('common.days')
 
 // Day of the next game: today until a few hours after kickoff, then next week's.
 export function nextGameDay(now = new Date(), schedule = GAME) {
@@ -32,8 +33,8 @@ export function nextGameDay(now = new Date(), schedule = GAME) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-// "שבת 7.11, 9:30"
+// "שבת 7.11, 9:30" / "Saturday 11/7, 9:30 AM"
 export function gameLabel(day, schedule = GAME) {
   const [y, m, d] = day.split('-').map(Number)
-  return `${DAYS[new Date(y, m - 1, d).getDay()]} ${d}.${m}, ${schedule.kickoff}`
+  return t('common.gameLabel', { day: dayName(new Date(y, m - 1, d).getDay()), date: shortDate(m, d), time: formatKickoff(schedule.kickoff) })
 }

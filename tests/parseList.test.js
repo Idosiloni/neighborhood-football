@@ -26,3 +26,22 @@ test('normalizeName ignores hidden characters, case and spaces', () => {
 test('a sentence pasted along with the list is not a name', () => {
   assert.deepEqual(parseNames('1. אבי\n2. בר לב\nככה נראת רשימה שלנו היום'), ['אבי', 'בר לב'])
 })
+
+test('English title lines are skipped: day, time, AM/PM, date', () => {
+  const text = 'Saturday 9:30\nSat 9:30 AM\nSat 9am\nSaturday\nSaturday morning\nSun. 11/7\n1. Alex\n2. Ben'
+  assert.deepEqual(parseNames(text), ['Alex', 'Ben'])
+})
+
+test('English sentences and short title lines are not names', () => {
+  const text = "Here's the list for today\nToday’s list:\nGame tonight\nWho's coming?\n1. Alex\n2. Ben"
+  assert.deepEqual(parseNames(text), ['Alex', 'Ben'])
+})
+
+test('English names: two words, apostrophes, hyphens, emoji and case', () => {
+  const text = "1. John Smith\n2. O'Brien\n3. Mary-Jane ⚽\n✅ Dan\n5. john smith\n6. Amir\n7. Pam"
+  assert.deepEqual(parseNames(text), ['John Smith', "O'Brien", 'Mary-Jane', 'Dan', 'Amir', 'Pam'])
+})
+
+test('Hebrew titles are skipped, but a name like שני is kept', () => {
+  assert.deepEqual(parseNames('יום שבת\nשבת בבוקר\nהרשימה להיום\n1. שני כהן\n2. שני'), ['שני כהן', 'שני'])
+})

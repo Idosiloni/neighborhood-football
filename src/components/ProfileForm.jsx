@@ -5,6 +5,7 @@ import { EMOJIS, fromPositions, positionsOf } from '../lib/positions'
 import PositionPicker from './PositionPicker'
 import { photoToDataUrl } from '../lib/photo'
 import { hasPhoto } from '../lib/photos'
+import { t } from '../i18n'
 
 // What a player fills in about himself: photo (camera or gallery), nickname, positions.
 // withName: the join screen also asks for his name.
@@ -22,13 +23,13 @@ export default function ProfileForm({ initial, withName = false, submitLabel, on
     try {
       set({ photo: await photoToDataUrl(file) })
     } catch {
-      setError('לא הצלחתי לקרוא את התמונה')
+      setError(t('onboarding.profile.photoError'))
     }
   }
 
   const submit = async (e) => {
     e.preventDefault()
-    if (withName && !p.name?.trim()) return setError('צריך שם')
+    if (withName && !p.name?.trim()) return setError(t('onboarding.profile.nameRequired'))
     setBusy(true)
     setError('')
     try {
@@ -45,32 +46,32 @@ export default function ProfileForm({ initial, withName = false, submitLabel, on
         <Avatar player={p} size={132} />
         <div className="row">
           <label className="btn small ghost">
-            <Icon name="camera" size={18} /> צלם
+            <Icon name="camera" size={18} /> {t('onboarding.profile.camera')}
             <input type="file" accept="image/*" capture="user" hidden onChange={pickPhoto} />
           </label>
           <label className="btn small ghost">
-            <Icon name="image" size={18} /> מהגלריה
+            <Icon name="image" size={18} /> {t('onboarding.profile.gallery')}
             <input type="file" accept="image/*" hidden onChange={pickPhoto} />
           </label>
         </div>
-        {hasPhoto(p) && <button type="button" className="link-btn" onClick={() => set({ photo: null })}>הסר תמונה</button>}
+        {hasPhoto(p) && <button type="button" className="link-btn" onClick={() => set({ photo: null })}>{t('onboarding.profile.removePhoto')}</button>}
       </div>
 
       {withName && (
         <label className="field">
-          שם (כמו שקוראים לך במגרש)
+          {t('onboarding.profile.name')}
           <input className="input" value={p.name ?? ''} onChange={(e) => set({ name: e.target.value })} maxLength={30} autoComplete="given-name" />
         </label>
       )}
 
       <label className="field">
-        כינוי לכרטיס (לא חובה)
-        <input className="input" value={p.nickname ?? ''} onChange={(e) => set({ nickname: e.target.value })} maxLength={24} placeholder="למשל: התותח, הקיר, מסי של השכונה" />
+        {t('onboarding.profile.nickname')}
+        <input className="input" value={p.nickname ?? ''} onChange={(e) => set({ nickname: e.target.value })} maxLength={24} placeholder={t('onboarding.profile.nicknamePlaceholder')} />
       </label>
 
       {!hasPhoto(p) && (
         <div className="field">
-          אימוג'י (אם אין תמונה)
+          {t('onboarding.profile.emoji')}
           <div className="emoji-grid emoji-scroll">
             {EMOJIS.map((em) => (
               <button type="button" key={em} className={p.emoji === em ? 'on' : ''} onClick={() => set({ emoji: em })}>{em}</button>
@@ -82,7 +83,7 @@ export default function ProfileForm({ initial, withName = false, submitLabel, on
       <PositionPicker value={p.positions} onChange={(positions) => set({ positions })} />
 
       {error && <p className="err">{error}</p>}
-      <button className="btn big" disabled={busy}>{busy ? 'שומר…' : submitLabel}</button>
+      <button className="btn big" disabled={busy}>{busy ? t('common.saving') : submitLabel}</button>
     </form>
   )
 }

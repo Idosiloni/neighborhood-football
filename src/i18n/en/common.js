@@ -1,0 +1,37 @@
+// Texts used all over the app. American English; en-GB/common.js has the British differences.
+export default {
+  appName: 'Neighborhood Football',
+  loading: 'Loading…',
+  back: 'Back',
+  close: 'Close',
+  save: 'Save',
+  saving: 'Saving…',
+  saved: 'Saved ✓',
+  cancel: 'Cancel',
+  continue: 'Continue',
+  edit: 'Edit',
+  delete: 'Delete',
+  yes: 'Yes',
+  no: 'No',
+  offline: 'No connection right now. Try again in a moment.',
+  failed: 'Something went wrong. Please try again.',
+  notConfigured: "The app isn't connected to a server yet: the Supabase keys are missing from the Vercel settings.",
+  demoBar: 'Demo mode: everything is saved on this phone only',
+
+  // 0 = Sunday
+  days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  // "Saturday 11/7"
+  dayLabel: '{day} {date}',
+  // "Saturday 11/7, 9:30 AM"
+  gameLabel: '{day} {date}, {time}',
+
+  team: {
+    a: 'Blues',
+    aShort: 'Blue',
+    b: 'Oranges',
+    bShort: 'Orange',
+  },
+
+  language: 'Language',
+  languageAuto: 'Automatic',
+}

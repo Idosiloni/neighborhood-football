@@ -6,24 +6,27 @@ import { minPlayers, splitTeams, suggestRotation } from '../lib/teams'
 import { GAME, pickSettings } from '../lib/dates'
 import { getMyCode, setMyCode } from '../lib/identity'
 import { fromPositions, positionsOf } from '../lib/positions'
+import { compareNames, language, t } from '../i18n'
+import { cleanOptions, validOptions } from '../lib/options'
 
 const KEY = 'football-demo-v3'
 
+// The demo's made-up players: [Hebrew name, English name, emoji, position, can play in goal].
 const SAMPLE = [
-  ['יוסי', '🧤', 'gk', true],
-  ['אבי', '🦁', 'att', false],
-  ['משה', '🚀', 'mid', false],
-  ['דני', '🧱', 'def', true],
-  ['רון', '⚡', 'att', false],
-  ['איתי', '🎯', 'mid', false],
-  ['עומר', '🔥', 'att', false],
-  ['גיל', '🦅', 'def', false],
-  ['נועם', '🐯', 'mid', false],
-  ['אלון', '👑', 'def', false],
-  ['שי', '🦈', 'att', false],
-  ['טל', '🐺', 'mid', false],
-  ['בני', '🧤', 'gk', true],
-  ['אורי', '💪', 'any', false],
+  ['יוסי', 'Joe', '🧤', 'gk', true],
+  ['אבי', 'Alex', '🦁', 'att', false],
+  ['משה', 'Mike', '🚀', 'mid', false],
+  ['דני', 'Danny', '🧱', 'def', true],
+  ['רון', 'Ron', '⚡', 'att', false],
+  ['איתי', 'Ethan', '🎯', 'mid', false],
+  ['עומר', 'Omar', '🔥', 'att', false],
+  ['גיל', 'Gil', '🦅', 'def', false],
+  ['נועם', 'Noah', '🐯', 'mid', false],
+  ['אלון', 'Allie', '👑', 'def', false],
+  ['שי', 'Sam', '🦈', 'att', false],
+  ['טל', 'Taylor', '🐺', 'mid', false],
+  ['בני', 'Ben', '🧤', 'gk', true],
+  ['אורי', 'Riley', '💪', 'any', false],
 ]
 
 const newId = () => crypto.randomUUID()
@@ -33,9 +36,12 @@ const newJoinCode = () => Array.from(crypto.getRandomValues(new Uint32Array(6)),
 const now = () => new Date().toISOString()
 
 function fresh() {
-  const group = { id: newId(), name: 'כדורגל שכונה', join_code: newJoinCode(), weekday: 6, kickoff: '9:30' }
-  const players = SAMPLE.map(([name, emoji, position, can_gk], i) => ({
-    id: newId(), group_id: group.id, name, emoji, photo: null, ...fromPositions(positionsOf({ position, can_gk })), active: true,
+  // The demo starts in the language the phone is in when it first opens.
+  const english = language() === 'en'
+  const group = { id: newId(), name: t('common.appName'), join_code: newJoinCode(), weekday: 6, kickoff: '9:30' }
+  const players = SAMPLE.map(([heName, enName, emoji, position, can_gk], i) => ({
+    name: english ? enName : heName,
+    id: newId(), group_id: group.id, emoji, photo: null, ...fromPositions(positionsOf({ position, can_gk })), active: true,
     is_admin: i === 0, claimed_at: i < 10 ? now() : null,
   }))
   // Everyone ranks everyone in the sample order, so the demo has ratings to balance with.
@@ -178,18 +184,25 @@ export function createMockApi() {
 
     // ── groups ──
     async getGroup() {
-      return copy(state.groups.find((g) => g.id === myGroupId()) ?? null)
+      const g = state.groups.find((x) => x.id === myGroupId())
+      return g ? copy({ options: {}, ...g }) : null
     },
     async saveGroup({ name }) {
       requireAdmin()
       state.groups.find((g) => g.id === myGroupId()).name = name.trim()
       save()
     },
+    async saveOptions(options) {
+      requireAdmin()
+      state.groups.find((g) => g.id === myGroupId()).options = cleanOptions(options)
+      save()
+    },
     async createGroup(groupName, f, settings = null) {
       const name = f.name?.trim()
       if (!groupName?.trim()) throw new Error('group name required')
       if (!name) throw new Error('name required')
-      const group = { id: newId(), name: groupName.trim(), join_code: newJoinCode(), ...GAME, ...pickSettings(settings ?? {}) }
+      if (settings?.options !== undefined && !validOptions(settings.options)) throw new Error('invalid settings')
+      const group = { id: newId(), name: groupName.trim(), join_code: newJoinCode(), ...GAME, ...pickSettings(settings ?? {}), options: settings?.options ?? {} }
       const id = newId()
       state.groups.push(group)
       state.players.push({ id, group_id: group.id, name, ...profileFields(f), active: true, is_admin: true, claimed_at: now() })
@@ -202,11 +215,11 @@ export function createMockApi() {
       if (!g) return null
       const open = groupPlayers(g.id).filter((p) => p.active && !p.claimed_at)
       const { weekday, kickoff, venue } = settingsOf(g)
-      return copy({ id: g.id, name: g.name, weekday, kickoff, venue, open: open.map(({ id, name, emoji, photo }) => ({ id, name, emoji, photo })) })
+      return copy({ id: g.id, name: g.name, weekday, kickoff, venue, lang: g.options?.lang ?? null, open: open.map(({ id, name, emoji, photo }) => ({ id, name, emoji, photo })) })
     },
 
     async listPlayers() {
-      return copy(groupPlayers(myGroupId()).sort((a, b) => a.name.localeCompare(b.name, 'he')))
+      return copy(groupPlayers(myGroupId()).sort((a, b) => compareNames(a.name, b.name)))
     },
 
     async getVoter(code) {
@@ -251,7 +264,7 @@ export function createMockApi() {
       const ok = (pid) => pid !== voter.id && state.players.some((p) => p.id === pid && p.active && p.group_id === voter.group_id)
       const clean = [...new Set(ranking)].filter(ok)
       const byId = Object.fromEntries(state.players.map((p) => [p.id, p]))
-      const moved = movedCount(clean, byId, (a, b) => a.localeCompare(b, 'he'))
+      const moved = movedCount(clean, byId, compareNames)
       state.ballots = state.ballots.filter((b) => b.voter_id !== voter.id).concat({ voter_id: voter.id, ranking: clean, moved, updated_at: now() })
       voter.claimed_at ??= now()
       save()

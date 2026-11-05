@@ -16,8 +16,8 @@ import Lineup from '../components/Lineup'
 import { readManaging, writeManaging } from '../lib/managing'
 import { celebrate } from '../components/Celebration'
 import { play } from '../lib/sound'
-
-const PHASE_LABEL = { regular: 'זמן משחק', extra: 'הארכה', golden: 'גול זהב' }
+import { sport } from '../sports'
+import { t } from '../i18n'
 
 // Short beep + vibration when the match changes phase or ends.
 function signal() {
@@ -64,12 +64,12 @@ export default function Match({ id }) {
   if (ready === false) {
     return (
       <main className="page">
-        <PageHeader title="משחק" back="#/tonight" />
+        <PageHeader title={t('match.title')} back="#/tonight" />
         <NeedsUpdate />
       </main>
     )
   }
-  return ready ? <MatchBody id={id} /> : <main className="page"><p className="center muted">טוען…</p></main>
+  return ready ? <MatchBody id={id} /> : <main className="page"><p className="center muted">{t('common.loading')}</p></main>
 }
 
 function MatchBody({ id }) {
@@ -141,12 +141,12 @@ function MatchBody({ id }) {
     update(next, { onlyLive: true }).finally(() => (saving.current = false))
   })
 
-  if (error && !data) return <main className="page"><p className="err center">אין חיבור כרגע.</p></main>
+  if (error && !data) return <main className="page"><p className="err center">{t('common.offline')}</p></main>
   if (!data || !m) {
     return (
       <main className="page">
-        <PageHeader title="משחק" back="#/tonight" />
-        <p className="center muted">{data && !data.match ? 'המשחק לא נמצא (אולי בוטל).' : 'טוען…'}</p>
+        <PageHeader title={t('match.title')} back="#/tonight" />
+        <p className="center muted">{data && !data.match ? t('match.notFound') : t('common.loading')}</p>
       </main>
     )
   }
@@ -178,7 +178,7 @@ function MatchBody({ id }) {
 
   const undo = async () => {
     const lastGoal = goals.at(-1)
-    if (!lastGoal || !confirm('לבטל את הגול האחרון?')) return
+    if (!lastGoal || !confirm(t('match.confirmUndo'))) return
     setGoals((g) => g.slice(0, -1))
     await api.deleteGoal(lastGoal.id)
     // Undoing the deciding goal reopens the match (paused).
@@ -192,7 +192,7 @@ function MatchBody({ id }) {
   }
 
   const cancelMatch = async () => {
-    if (!confirm('לבטל את המשחק הזה לגמרי? הגולים שלו יימחקו.')) return
+    if (!confirm(t('match.confirmCancel'))) return
     await api.deleteMatch(id)
     writeManaging(null)
     go('/tonight')
@@ -200,12 +200,12 @@ function MatchBody({ id }) {
 
   // A match that didn't really happen (a test, a mistake): admins remove it with its goals.
   const deletePlayed = async () => {
-    if (!confirm(`למחוק את משחק ${m.num}? הוא והגולים שלו ייעלמו מהסטטיסטיקה.`)) return
+    if (!confirm(t('match.confirmDelete', { num: m.num }))) return
     try {
       await api.deleteMatch(id)
       go('/tonight')
     } catch {
-      alert('המחיקה נכשלה')
+      alert(t('match.deleteFailed'))
     }
   }
 
@@ -217,35 +217,47 @@ function MatchBody({ id }) {
   return (
     <main className="page match-page">
       <PageHeader
-        title={`משחק ${m.num}`}
+        title={t('match.num', { num: m.num })}
         back="#/tonight"
         action={control && (
-          <button className="icon-btn" aria-label="אפשרויות" onClick={() => setSheet({ kind: 'menu' })}><Icon name="more" /></button>
+          <button className="icon-btn" aria-label={t('match.options')} onClick={() => setSheet({ kind: 'menu' })}><Icon name="more" /></button>
         )}
       />
 
       <FinalTicks on={control && finalSeconds} left={left} />
       <div className={`clock-card${running ? ' running' : ''}${m.phase !== 'regular' ? ` phase-${m.phase}` : ''}${finalSeconds ? ' final-seconds' : ''}`}>
-        <span className="phase-pill">{finished ? 'הסתיים' : PHASE_LABEL[m.phase]}</span>
+        <span className="phase-pill">{finished ? t('match.finished') : t(`match.phase.${m.phase}`)}</span>
         <div className="clock" dir="ltr">
           {finished ? formatClock(m.clock_ms) : left === null ? formatClock(shownElapsed(m)) : formatClock(left)}
         </div>
         <span className="muted small">
-          {finished ? `שוחק ${formatClock(m.clock_ms)}` : m.phase === 'golden' ? 'הגול הבא מנצח' : winGoals(m) ? `ראשונה ל-${winGoals(m)} או סוף הזמן` : 'עד סוף הזמן'}
+          {finished
+            ? t('match.played', { time: formatClock(m.clock_ms) })
+            : m.phase === 'golden'
+              ? t('match.nextGoalWins')
+              : winGoals(m)
+                ? t('match.firstTo', { count: winGoals(m) })
+                : t('match.untilTime')}
         </span>
       </div>
 
       {waitingPhase && (
         <div className="card phase-banner">
-          <strong>{m.phase === 'extra' ? '⏱️ תיקו! הארכה של 2 דקות' : '⚡ עדיין תיקו! גול זהב'}</strong>
-          <p className="muted">{m.phase === 'extra' ? `מי שמוביל בסוף ההארכה${winGoals(m) ? ` (או מגיע ל-${winGoals(m)})` : ''} מנצח.` : 'הגול הבא מנצח, בלי הגבלת זמן.'}</p>
+          <strong>{m.phase === 'extra' ? t('match.extraBanner', { count: sport.extraMinutes }) : t('match.goldenBanner')}</strong>
+          <p className="muted">
+            {m.phase === 'extra'
+              ? winGoals(m)
+                ? t('match.extraRuleGoals', { count: winGoals(m) })
+                : t('match.extraRule')
+              : t('match.goldenRule')}
+          </p>
         </div>
       )}
 
       {finished && (
         <div className={`card winner-card team-${m.winner}`}>
           <Icon name="trophy" size={34} />
-          <strong>{TEAM[m.winner].name} ניצחו</strong>
+          <strong>{t('match.teamWon', { team: TEAM[m.winner].name })}</strong>
           <span className="winner-score" dir="ltr">{Math.max(score.a, score.b)} – {Math.min(score.a, score.b)}</span>
         </div>
       )}
@@ -258,69 +270,73 @@ function MatchBody({ id }) {
             className={`score-btn team-${side}${finished && m.winner === side ? ' won' : ''}`}
             disabled={!control}
             onClick={() => setSheet({ kind: 'goal', team: side })}
-            aria-label={`גול ל${TEAM[side].name}`}
+            aria-label={t('match.goalFor', { team: TEAM[side].name })}
           >
             <span className="score-team">{TEAM[side].name}</span>
             <span key={score[side]} className={`score-num${score[side] ? ' bump' : ''}`}>{score[side]}</span>
             <span className="score-faces">
               {m[`team_${side}`].map((pid) => byId[pid] && <Avatar key={pid} player={byId[pid]} size={22} />)}
             </span>
-            {control && <span className="score-tap">+ גול</span>}
+            {control && <span className="score-tap">{t('match.addGoal')}</span>}
           </button>
         ))}
       </div>
 
       {control && (
         <div className="controls">
-          <button className="ctrl-btn" onClick={undo} disabled={goals.length === 0} aria-label="בטל גול אחרון">
+          <button className="ctrl-btn" onClick={undo} disabled={goals.length === 0} aria-label={t('match.undoLastAria')}>
             <Icon name="undo" />
-            <span>בטל גול</span>
+            <span>{t('match.undoGoal')}</span>
           </button>
           {running ? (
-            <button className="ctrl-main" onClick={pause} aria-label="עצור שעון"><Icon name="pause" size={34} /></button>
+            <button className="ctrl-main" onClick={pause} aria-label={t('match.pauseClock')}><Icon name="pause" size={34} /></button>
           ) : (
-            <button className="ctrl-main go" onClick={start} aria-label="הפעל שעון"><Icon name="play" size={34} /></button>
+            <button className="ctrl-main go" onClick={start} aria-label={t('match.startClock')}><Icon name="play" size={34} /></button>
           )}
-          <button className="ctrl-btn" onClick={() => setSheet({ kind: 'menu' })} aria-label="אפשרויות">
+          <button className="ctrl-btn" onClick={() => setSheet({ kind: 'menu' })} aria-label={t('match.options')}>
             <Icon name="more" />
-            <span>עוד</span>
+            <span>{t('match.more')}</span>
           </button>
         </div>
       )}
       {control && !running && (
         <p className="center muted small">
-          {m.clock_ms === 0 ? 'לחץ ▶ כדי להתחיל את השעון' : waitingPhase ? (m.phase === 'extra' ? 'לחץ ▶ להתחלת ההארכה' : 'לחץ ▶ להתחלת גול זהב') : 'השעון עצור'}
+          {m.clock_ms === 0
+            ? t('match.tapToStart')
+            : waitingPhase
+              ? t(m.phase === 'extra' ? 'match.tapToStartExtra' : 'match.tapToStartGolden')
+              : t('match.clockStopped')}
         </p>
       )}
 
       {!finished && !control && member && (
-        <button className="btn" onClick={takeControl}>📋 אני מנהל המשחק</button>
+        <button className="btn" onClick={takeControl}>{t('match.takeControl')}</button>
       )}
-      {!finished && member === false && <p className="note center">צפייה בלבד. כדי לנהל משחק, פתח את הקישור האישי שלך.</p>}
+      {!finished && member === false && <p className="note center">{t('match.viewOnly')}</p>}
 
       {finished && <MvpVote match={m} byId={byId} />}
 
       {finished && member && (
         <div className="stack">
-          <a className="btn big" href={`#/next/${m.id}`}>המשחק הבא: מי יוצא ומי נכנס <Icon name="forward" size={18} /></a>
-          {managing && <button className="link-btn" onClick={undo}>טעות? בטל את הגול האחרון</button>}
+          <a className="btn big" href={`#/next/${m.id}`}>{t('match.nextMatchLink')} <Icon name="forward" size={18} /></a>
+          {managing && <button className="link-btn" onClick={undo}>{t('match.undoMistake')}</button>}
         </div>
       )}
 
-      <button className="btn ghost" onClick={() => setSheet({ kind: 'lineup' })}>⚽ הרכבים</button>
-      {finished && admin && <button className="link-btn danger" onClick={deletePlayed}>🗑️ מחק את המשחק (לא באמת שוחק)</button>}
+      <button className="btn ghost" onClick={() => setSheet({ kind: 'lineup' })}>{t('match.lineups')}</button>
+      {finished && admin && <button className="link-btn danger" onClick={deletePlayed}>{t('match.deletePlayed')}</button>}
 
       {goals.length > 0 && (
         <section className="stack">
-          <h2 className="section-title">גולים</h2>
+          <h2 className="section-title">{t('match.goalsTitle')}</h2>
           <ol className="goal-list">
             {[...goals].reverse().map((g) => (
               <li key={g.id} className={`team-${g.team}`}>
                 <span className="goal-time" dir="ltr">{formatClock(g.at_ms)}</span>
                 <span className="goal-dot" />
                 <span className="goal-who">
-                  ⚽ {byId[g.scorer]?.name ?? 'לא ידוע'}
-                  {g.assist && byId[g.assist] && <small>בישול: {byId[g.assist].name}</small>}
+                  ⚽ {byId[g.scorer]?.name ?? t('match.unknown')}
+                  {g.assist && byId[g.assist] && <small>{t('match.assistBy', { name: byId[g.assist].name })}</small>}
                 </span>
               </li>
             ))}
@@ -337,20 +353,20 @@ function MatchBody({ id }) {
         />
       )}
       {sheet?.kind === 'lineup' && (
-        <Sheet title={`הרכבים, משחק ${m.num}`} onClose={() => setSheet(null)}>
+        <Sheet title={t('match.lineupsTitle', { num: m.num })} onClose={() => setSheet(null)}>
           <Lineup teamA={m.team_a} teamB={m.team_b} byId={byId} />
         </Sheet>
       )}
       {sheet?.kind === 'menu' && (
-        <Sheet title="אפשרויות" onClose={() => setSheet(null)}>
+        <Sheet title={t('match.options')} onClose={() => setSheet(null)}>
           <div className="stack">
-            <p className="muted">סיום ידני (למשל אם הפסקתם באמצע):</p>
+            <p className="muted">{t('match.manualEnd')}</p>
             <div className="row">
-              <button className="btn team-a-bg" onClick={() => endManually('a')}>{TEAM.a.name} ניצחו</button>
-              <button className="btn team-b-bg" onClick={() => endManually('b')}>{TEAM.b.name} ניצחו</button>
+              <button className="btn team-a-bg" onClick={() => endManually('a')}>{t('match.teamWon', { team: TEAM.a.name })}</button>
+              <button className="btn team-b-bg" onClick={() => endManually('b')}>{t('match.teamWon', { team: TEAM.b.name })}</button>
             </div>
-            <button className="btn ghost" onClick={() => { writeManaging(null); setManaging(false); setSheet(null) }}>הפסק לנהל מהטלפון הזה</button>
-            <button className="link-btn danger" onClick={cancelMatch}>בטל את המשחק</button>
+            <button className="btn ghost" onClick={() => { writeManaging(null); setManaging(false); setSheet(null) }}>{t('match.stopManaging')}</button>
+            <button className="link-btn danger" onClick={cancelMatch}>{t('match.cancelMatch')}</button>
           </div>
         </Sheet>
       )}
@@ -373,7 +389,7 @@ function GoalSheet({ team, players, onClose, onSave }) {
 
   if (scorer === undefined) {
     return (
-      <Sheet title={`גול ל${TEAM[team].name}! מי הבקיע?`} onClose={onClose}>
+      <Sheet title={t('match.whoScored', { team: TEAM[team].name })} onClose={onClose}>
         <div className="pick-grid">
           {players.map((p) => (
             <button key={p.id} className="pick" onClick={() => setScorer(p.id)}>
@@ -383,7 +399,7 @@ function GoalSheet({ team, players, onClose, onSave }) {
           ))}
           <button className="pick unknown" onClick={() => onSave(team, null, null)}>
             <span className="avatar" style={{ width: 48, height: 48, fontSize: 24 }}>❔</span>
-            <span>לא ידוע</span>
+            <span>{t('match.unknown')}</span>
           </button>
         </div>
       </Sheet>
@@ -391,7 +407,7 @@ function GoalSheet({ team, players, onClose, onSave }) {
   }
 
   return (
-    <Sheet title="מי בישל?" onClose={onClose}>
+    <Sheet title={t('match.whoAssisted')} onClose={onClose}>
       <div className="pick-grid">
         {players.filter((p) => p.id !== scorer).map((p) => (
           <button key={p.id} className="pick" onClick={() => onSave(team, scorer, p.id)}>
@@ -401,7 +417,7 @@ function GoalSheet({ team, players, onClose, onSave }) {
         ))}
         <button className="pick unknown" onClick={() => onSave(team, scorer, null)}>
           <span className="avatar" style={{ width: 48, height: 48, fontSize: 24 }}>🚫</span>
-          <span>בלי בישול</span>
+          <span>{t('match.noAssist')}</span>
         </button>
       </div>
     </Sheet>

@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from './Icon'
@@ -20,7 +21,7 @@ export default function Sheet({ title, onClose, children }) {
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="סגור"><Icon name="close" size={18} /></button>
+          <button className="icon-btn" onClick={onClose} aria-label={t('common.close')}><Icon name="close" size={18} /></button>
         </div>
         <div className="sheet-body">{children}</div>
       </div>

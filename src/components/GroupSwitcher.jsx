@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { currentGroup, myGroups, openGroup } from '../lib/identity'
 import Sheet from './Sheet'
 import Icon from './Icon'
+import { t, isRTL } from '../i18n'
 
 // A button (the open group's name, or label); tap to switch to another group on this phone,
 // open a new one or join one.
@@ -9,7 +10,7 @@ export default function GroupSwitcher({ label, className = '' }) {
   const [open, setOpen] = useState(false)
   const current = currentGroup()
   const groups = myGroups()
-  const title = label ?? current?.name ?? 'הקבוצה'
+  const title = label ?? current?.name ?? t('onboarding.groups.defaultTitle')
 
   return (
     <>
@@ -17,7 +18,7 @@ export default function GroupSwitcher({ label, className = '' }) {
         {title} <span aria-hidden="true">▾</span>
       </button>
       {open && (
-        <Sheet title="הקבוצות שלי" onClose={() => setOpen(false)}>
+        <Sheet title={t('onboarding.groups.title')} onClose={() => setOpen(false)}>
           <div className="stack">
             {groups.map((g) => (
               <button
@@ -27,11 +28,11 @@ export default function GroupSwitcher({ label, className = '' }) {
               >
                 <span className="group-dot">⚽</span>
                 <span className="rank-name">{g.name}</span>
-                {g.code === current?.code ? <Icon name="check" size={18} /> : <span className="chev">‹</span>}
+                {g.code === current?.code ? <Icon name="check" size={18} /> : <span className="chev">{isRTL() ? '‹' : '›'}</span>}
               </button>
             ))}
-            <a className="btn ghost" href="#/join" onClick={() => setOpen(false)}>📨 הצטרפות לקבוצה נוספת</a>
-            <a className="btn ghost" href="#/new" onClick={() => setOpen(false)}>🆕 פתיחת קבוצה חדשה</a>
+            <a className="btn ghost" href="#/join" onClick={() => setOpen(false)}>{t('onboarding.groups.join')}</a>
+            <a className="btn ghost" href="#/new" onClick={() => setOpen(false)}>{t('onboarding.groups.create')}</a>
           </div>
         </Sheet>
       )}
