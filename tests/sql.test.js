@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
-import { suggestRotation, imbalance } from '../src/lib/teams.js'
+import { suggestRotation, imbalance, stayingSide } from '../src/lib/teams.js'
 
 const SCHEMA = readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8')
 const SCHEMA_V1 = readFileSync(new URL('./fixtures/schema_v1.sql', import.meta.url), 'utf8')
@@ -85,9 +85,9 @@ test('schema: can be run again (third time) without errors', async () => {
   await db.exec(SCHEMA)
 })
 
-test('schema: schema_version() = 4 for anyone', async () => {
-  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 4)
-  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 4)
+test('schema: schema_version() = 5 for anyone', async () => {
+  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 5)
+  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 5)
 })
 
 test('schema: no table sends its rows over realtime (only content-free pings)', async () => {
@@ -474,8 +474,9 @@ async function rotate(present, matches, { keepers = [], who = MEMBER } = {}) {
   const r = await as(db, who, 'select public.suggest_rotation($1) as r', [matchIds.at(-1)])
   await db.query(`update public.players set position = 'any' where name like 'p%'`)
   if (r.error) return { error: r.error, night }
-  const out = Object.fromEntries(Object.entries(r.rows[0].r).map(([k, v]) => [k, v.map((id) => P[id])]))
-  return { ...out, raw: r.rows[0].r, night }
+  const { stays, ...lists } = r.rows[0].r
+  const out = Object.fromEntries(Object.entries(lists).map(([k, v]) => [k, v.map((id) => P[id])]))
+  return { ...out, stays, raw: lists, night }
 }
 
 test('rotation: refuses non-members', async () => {
@@ -494,6 +495,7 @@ test('rotation: refuses a live match, a finished match without winner, and an un
 test('rotation: returns only team_a/team_b/bench/leaving/entering with uuid arrays', async () => {
   const res = await rotate(range(0, 14), [match1()])
   assert.deepEqual(Object.keys(res.raw).sort(), ['bench', 'entering', 'leaving', 'team_a', 'team_b'])
+  assert.equal(res.stays, 'a')
   assert.ok(Object.values(res.raw).flat().every((id) => UUID.test(id)))
 })
 
@@ -513,6 +515,25 @@ test('rotation: winner B stays as team_b', async () => {
   assert.deepEqual(res.team_b, range(6, 12))
   assert.ok(res.team_a.includes('p12') && res.team_a.includes('p13'))
   assert.ok(res.leaving.every((n) => range(0, 6).includes(n)))
+})
+
+test('rotation: a draw in the first match → team A stays (both teams just came on)', async () => {
+  const res = await rotate(range(0, 18), [match1({ winner: 'draw' })])
+  assert.equal(res.stays, 'a')
+  assert.deepEqual(sorted(res.team_a), sorted(range(0, 6)))
+  assert.deepEqual(sorted(res.leaving), sorted(range(6, 12)))
+})
+
+test('rotation: a draw → the team that has been on longer goes off (same as teams.js stayingSide)', async () => {
+  // Match 1: A (p0..p5) beat B (p6..p11). Match 2: A again v newcomers p12..p17, a draw: A has been on longer.
+  const m2 = { num: 2, team_a: range(0, 6), team_b: range(12, 18), bench: range(6, 12), winner: 'draw' }
+  const res = await rotate(range(0, 18), [match1(), m2])
+  assert.equal(res.stays, 'b')
+  assert.deepEqual(sorted(res.team_b), sorted(range(12, 18)))
+  assert.deepEqual(sorted(res.leaving), sorted(range(0, 6)))
+  const byName = (list) => list.map((n) => n)
+  const js = stayingSide({ ...m2, team_a: byName(m2.team_a), team_b: byName(m2.team_b) }, range(0, 18), [match1(), m2])
+  assert.equal(js, 'b')
 })
 
 test('rotation: longest streak leaves first, same result as teams.js suggestRotation', async () => {
@@ -864,7 +885,8 @@ test('rules: old groups keep 6 per team, 7 minutes, first to 3; only the admin c
   await as(db, MEMBER, 'update public.groups set team_size = 9')
   assert.equal((await one(db, 'select team_size from public.groups where id = $1', [G.id])).team_size, 6)
   assert.ok(!(await as(db, 'admin', `update public.groups set team_size = 5, match_minutes = 10, win_goals = 0, venue = 'Park'`)).error)
-  for (const bad of ['team_size = 2', 'team_size = 12', 'match_minutes = 1', 'match_minutes = 46', 'win_goals = 11', `venue = '${'x'.repeat(61)}'`])
+  assert.ok(!(await as(db, 'admin', 'update public.groups set match_minutes = 120')).error) // a 2-hour game
+  for (const bad of ['team_size = 2', 'team_size = 12', 'match_minutes = 1', 'match_minutes = 121', 'win_goals = 11', `venue = '${'x'.repeat(61)}'`])
     assert.ok((await as(db, 'admin', `update public.groups set ${bad}`)).error, bad)
   await db.query(`update public.groups set team_size = 6, match_minutes = 7, win_goals = 3, venue = null where id = $1`, [G.id])
 })
@@ -878,7 +900,10 @@ test('options: start empty; only the admin changes them; unknown keys and values
   const set = (o) => as(db, 'admin', 'update public.groups set options = $1', [o])
   assert.ok(!(await set({ lang: 'en' })).error)
   assert.deepEqual(await opts(), { lang: 'en' })
-  for (const bad of [{ lang: 'fr' }, { lang: 3 }, { color: 'red' }, [], 'he'])
+  assert.ok(!(await set({ lang: 'en', format: 'game', periods: 2, break_minutes: 10, extra_minutes: 0, tie: 'draw', team_a: 'red', team_b: 'white' })).error)
+  await set({ lang: 'en' })
+  for (const bad of [{ lang: 'fr' }, { lang: 3 }, { color: 'red' }, [], 'he', { periods: 2.5 }, { periods: '2' }, { periods: 5 },
+    { break_minutes: 31 }, { extra_minutes: -1 }, { tie: 'coin' }, { team_a: 'pink' }, { team_a: 'orange' }, { team_a: 'red', team_b: 'red' }])
     assert.ok((await set(bad)).error, JSON.stringify(bad))
   assert.deepEqual(await opts(), { lang: 'en' })
   // the join link tells the group's language
@@ -894,6 +919,23 @@ test('options: create_group takes them from the settings; bad ones are refused',
   assert.deepEqual((await as(db, { code: r.rows[0].code }, 'select options from public.groups')).rows[0].options, { lang: 'en' })
   assert.match((await make({ options: { lang: 'xx' } })).error ?? '', /invalid settings/)
   assert.match((await make({ options: { nope: 1 } })).error ?? '', /invalid settings/)
+})
+
+test('rules: a new match keeps the group\'s periods, break, extra time and tie rule; changing them later does not touch it', async () => {
+  await db.query(`update public.groups set options = '{"periods": 2, "break_minutes": 10, "tie": "draw", "team_a": "red"}' where id = $1`, [G.id])
+  const { matchIds } = await addNight(range(0, 12), [match1({ winner: null, status: 'live' })])
+  const m = await one(db, 'select rules, period, break_since from public.matches where id = $1', [matchIds[0]])
+  assert.deepEqual(m.rules, { periods: 2, break_minutes: 10, tie: 'draw' })
+  assert.equal(m.period, 1)
+  await db.query(`update public.groups set options = '{}' where id = $1`, [G.id])
+  // the manager moves it to half-time and the second half; the rules stay, a player can't change them
+  assert.ok(!(await as(db, MEMBER, `update public.matches set phase = 'break', break_since = now(), rules = '{}' where id = $1`, [matchIds[0]])).error)
+  assert.ok(!(await as(db, MEMBER, `update public.matches set phase = 'regular', period = 2, break_since = null where id = $1`, [matchIds[0]])).error)
+  assert.deepEqual((await one(db, 'select rules, period from public.matches where id = $1', [matchIds[0]])), { rules: { periods: 2, break_minutes: 10, tie: 'draw' }, period: 2 })
+  // a draw can be saved; nonsense can't
+  assert.ok(!(await as(db, MEMBER, `update public.matches set status = 'finished', winner = 'draw' where id = $1`, [matchIds[0]])).error)
+  for (const bad of [`winner = 'c'`, `phase = 'nap'`, 'period = 5'])
+    assert.ok((await as(db, MEMBER, `update public.matches set ${bad} where id = $1`, [matchIds[0]])).error, bad)
 })
 
 test('rules: a match keeps the rules it started with, even when the group changes them or a player tries', async () => {
@@ -973,13 +1015,13 @@ test('join code: only the admin replaces it; the old link stops working', async 
   assert.ok(!(await join(fresh.toUpperCase(), 'Another')).error)
 })
 
-test('schema: running it again keeps groups and join codes; schema_version still 4', async () => {
+test('schema: running it again keeps groups and join codes; schema_version still 5', async () => {
   const jc = await joinCode()
   const groups = await count(db, 'select count(*)::int as n from public.groups')
   await db.exec(SCHEMA)
   assert.equal(await joinCode(), jc)
   assert.equal(await count(db, 'select count(*)::int as n from public.groups'), groups)
-  assert.equal((await one(db, 'select public.schema_version() as v')).v, 4)
+  assert.equal((await one(db, 'select public.schema_version() as v')).v, 5)
 })
 
 // ───────────── Several positions per player ─────────────
@@ -1210,7 +1252,7 @@ test('upgrade: v1 data (players, codes, ballots, ratings) survives the new schem
   assert.deepEqual((await one(up, 'select positions, can_gk from public.players where id = $1', [pid.d])), { positions: ['gk'], can_gk: true })
   assert.equal(await count(up, 'select count(*)::int as n from public.ballots where moved is null'), 0)
   assert.deepEqual((await one(up, 'select positions from public.players where id = $1', [pid.a])).positions, [])
-  assert.equal((await one(up, 'select public.schema_version() as v')).v, 4)
+  assert.equal((await one(up, 'select public.schema_version() as v')).v, 5)
   // groups from before options existed played in Hebrew, and keep it
   assert.deepEqual((await one(up, 'select options from public.groups')).options, { lang: 'he' })
   assert.equal(await count(up, 'select count(*)::int as n from public.groups'), 1)
@@ -1232,6 +1274,35 @@ test('upgrade: v1 data (players, codes, ballots, ratings) survives the new schem
     assert.equal(await count(up, `select count(*)::int as n from public.${t}`), 0)
 
   await up.close()
+})
+
+test('upgrade: a version 4 database (old limits) accepts draws, half-time and 60-minute halves after the update', async () => {
+  const up = await newDb()
+  await up.exec(SCHEMA)
+  // back to version 4: the old checks under their old names, no rules/period/break_since
+  await up.exec(`
+    alter table public.matches drop constraint matches_winner_check, drop constraint matches_phase_check, drop constraint matches_period_check;
+    alter table public.matches add constraint matches_winner_check check (winner in ('a', 'b')),
+      add constraint matches_phase_check check (phase in ('regular', 'extra', 'golden'));
+    alter table public.matches drop column rules, drop column period, drop column break_since;
+    alter table public.groups drop constraint groups_rules_valid;
+    alter table public.groups add constraint groups_rules_valid check (
+      team_size between 3 and 11 and match_minutes between 2 and 45 and win_goals between 0 and 10
+      and (venue is null or length(trim(venue)) <= 60));`)
+  const g = await newGroup(up, 'Old rules')
+  assert.ok(await up.query('update public.groups set match_minutes = 60 where id = $1', [g.id]).then(() => false, () => true)) // refused before
+  const night = (await one(up, `insert into public.nights (group_id, day) values ($1, '2026-11-07') returning id`, [g.id])).id
+  // (inserted without the new trigger, which already expects the version 5 columns)
+  await up.exec('alter table public.matches disable trigger matches_fill_group')
+  const old = (await one(up, `insert into public.matches (night_id, group_id, num, team_a, team_b) values ($1, $2, 1, '{}', '{}') returning id`, [night, g.id])).id
+  await up.exec('alter table public.matches enable trigger matches_fill_group')
+  await up.exec(SCHEMA)
+  await up.query('update public.groups set match_minutes = 60 where id = $1', [g.id])
+  await up.query(`update public.matches set phase = 'break' where id = $1`, [old])
+  await up.query(`update public.matches set phase = 'penalties' where id = $1`, [old])
+  await up.query(`update public.matches set status = 'finished', winner = 'draw' where id = $1`, [old])
+  // a match from before keeps no rules (= the old behaviour) and starts in period 1
+  assert.deepEqual(await one(up, 'select rules, period from public.matches where id = $1', [old]), { rules: null, period: 1 })
 })
 
 test('upgrade: v3 groups (before options) get Hebrew once; groups opened later keep their own', async () => {

@@ -1,4 +1,4 @@
--- Neighborhood football, schema version 4: many groups in one database, each with its own options.
+-- Neighborhood football, schema version 5: many groups in one database, each with its own options and rules.
 -- Each group has its own players, game nights, matches, ratings and join link.
 -- The player who opens a group is its admin (and may make other players admins too).
 --
@@ -76,10 +76,10 @@ create table if not exists public.matches (
   team_b uuid[] not null,
   bench uuid[] not null default '{}',
   status text not null default 'live' check (status in ('live', 'finished')),
-  phase text not null default 'regular' check (phase in ('regular', 'extra', 'golden')),
+  phase text not null default 'regular' check (phase in ('regular', 'extra', 'golden', 'break', 'penalties')),
   clock_ms int not null default 0,
   running_since timestamptz null,
-  winner text null check (winner in ('a', 'b')),
+  winner text null check (winner in ('a', 'b', 'draw')),
   created_at timestamptz not null default now(),
   ended_at timestamptz null,
   unique (night_id, num)
@@ -151,6 +151,23 @@ end $$;
 alter table public.ballots add column if not exists moved int;
 alter table public.matches add column if not exists match_minutes int;
 alter table public.matches add column if not exists win_goals int;
+-- Version 5: the rest of the group's rules, frozen on the match too ({ periods, break_minutes,
+-- extra_minutes, tie }; null = from before: one period, 2 minutes of extra time, then golden goal),
+-- which period is on, and when half-time started (the break's own timer).
+alter table public.matches add column if not exists rules jsonb;
+alter table public.matches add column if not exists period int not null default 1;
+alter table public.matches add column if not exists break_since timestamptz;
+
+-- Limits that changed in version 5 are replaced on every run, so existing databases get them too:
+-- draws, half-time and penalties, and periods up to 120 minutes.
+alter table public.matches drop constraint if exists matches_winner_check;
+alter table public.matches add constraint matches_winner_check check (winner in ('a', 'b', 'draw'));
+alter table public.matches drop constraint if exists matches_phase_check;
+alter table public.matches add constraint matches_phase_check
+  check (phase in ('regular', 'extra', 'golden', 'break', 'penalties'));
+alter table public.matches drop constraint if exists matches_period_check;
+alter table public.matches add constraint matches_period_check check (period between 1 and 4);
+alter table public.groups drop constraint if exists groups_rules_valid;
 
 do $$
 begin
@@ -163,7 +180,7 @@ begin
   end if;
   if not exists (select 1 from pg_constraint where conname = 'groups_rules_valid' and conrelid = 'public.groups'::regclass) then
     alter table public.groups add constraint groups_rules_valid check (
-      team_size between 3 and 11 and match_minutes between 2 and 45 and win_goals between 0 and 10
+      team_size between 3 and 11 and match_minutes between 2 and 120 and win_goals between 0 and 10
       and (venue is null or length(trim(venue)) <= 60));
   end if;
   if not exists (select 1 from pg_constraint where conname = 'players_positions_valid' and conrelid = 'public.players'::regclass) then
@@ -182,6 +199,15 @@ end $$;
 create schema if not exists private;
 revoke all on schema private from public;
 
+-- A whole number option within limits (or not set). Checks the type first, so 2.5 or "x" is refused, not rounded.
+create or replace function private.option_int(o jsonb, k text, lo int, hi int)
+returns boolean
+language sql immutable set search_path = ''
+as $$
+  select not o ? k or (jsonb_typeof(o->k) = 'number' and (o->>k)::numeric = trunc((o->>k)::numeric)
+                       and (o->>k)::numeric between lo and hi);
+$$;
+
 -- A group's options: an object with known keys only, each with an allowed value. Same rules as
 -- src/lib/options.js. A new option = a new line here and there (old groups simply don't have it).
 create or replace function private.options_valid(o jsonb)
@@ -189,8 +215,17 @@ returns boolean
 language sql immutable set search_path = ''
 as $$
   select jsonb_typeof(o) = 'object'
-    and not exists (select 1 from jsonb_object_keys(o) k where k not in ('lang'))
-    and (not o ? 'lang' or o->>'lang' in ('he', 'en'));
+    and not exists (select 1 from jsonb_object_keys(o) k where k not in (
+      'lang', 'format', 'periods', 'break_minutes', 'extra_minutes', 'tie', 'team_a', 'team_b'))
+    and (not o ? 'lang' or o->>'lang' in ('he', 'en'))
+    and (not o ? 'format' or o->>'format' in ('rounds', 'game'))
+    and (not o ? 'tie' or o->>'tie' in ('extra', 'penalties', 'draw'))
+    and private.option_int(o, 'periods', 1, 4)
+    and private.option_int(o, 'break_minutes', 0, 30)
+    and private.option_int(o, 'extra_minutes', 0, 10)
+    and (not o ? 'team_a' or o->>'team_a' in ('blue', 'orange', 'red', 'white', 'black', 'yellow', 'green', 'purple'))
+    and (not o ? 'team_b' or o->>'team_b' in ('blue', 'orange', 'red', 'white', 'black', 'yellow', 'green', 'purple'))
+    and coalesce(o->>'team_a', 'blue') <> coalesce(o->>'team_b', 'orange');
 $$;
 
 -- Checked by a trigger rather than a check constraint: a constraint would run private.options_valid
@@ -361,7 +396,7 @@ $$;
 create or replace function public.schema_version()
 returns int
 language sql immutable security definer set search_path = ''
-as $$ select 4 $$;
+as $$ select 5 $$;
 
 -- New rows land in the caller's group unless the server sets it.
 alter table public.players alter column group_id set default public.my_group();
@@ -480,11 +515,17 @@ begin
   elsif tg_table_name = 'matches' then
     new.group_id := (select n.group_id from public.nights n where n.id = new.night_id);
     if tg_op = 'INSERT' then
-      select g.match_minutes, g.win_goals into new.match_minutes, new.win_goals
+      select g.match_minutes, g.win_goals,
+             jsonb_strip_nulls(jsonb_build_object(
+               'periods', g.options->'periods', 'break_minutes', g.options->'break_minutes',
+               'extra_minutes', g.options->'extra_minutes', 'tie', g.options->'tie'))
+      into new.match_minutes, new.win_goals, new.rules
       from public.groups g where g.id = new.group_id;
+      new.period := 1;
     else
       new.match_minutes := old.match_minutes;
       new.win_goals := old.win_goals;
+      new.rules := old.rules;
     end if;
     v_ids := new.team_a || new.team_b || new.bench;
     if tg_op = 'UPDATE' then
@@ -1285,6 +1326,8 @@ declare
   v_bench int[];
   v_extra int[];
   v_wk int;
+  v_streak int[];
+  v_stay text;
   x int;
 begin
   select * into m from public.matches where id = p_match;
@@ -1308,8 +1351,9 @@ begin
 
   -- Games tonight (up to this match), and the streak of games in a row counting back from the latest.
   select coalesce(array_agg(st.played order by u.o), '{}'),
-         coalesce(array_agg(st.streak * 10 + st.played order by u.o), '{}')
-  into v_played, v_prio
+         coalesce(array_agg(st.streak * 10 + st.played order by u.o), '{}'),
+         coalesce(array_agg(st.streak order by u.o), '{}')
+  into v_played, v_prio, v_streak
   from unnest(v_ids) with ordinality as u(id, o)
   cross join lateral (
     select max(t.num) as last_missed
@@ -1324,13 +1368,28 @@ begin
     where t.night_id = m.night_id and t.num <= m.num
   ) st;
 
+  -- Who stays: the winner. After a draw, the team that has been on longer (more games in a row
+  -- on average) goes off; level (e.g. the first match) = team A stays. Same as stayingSide in teams.js.
+  if m.winner in ('a', 'b') then
+    v_stay := m.winner;
+  else
+    select case
+      when coalesce(sum(v_streak[array_position(v_ids, t.id)]) filter (where t.side = 'a'), 0) * greatest(count(*) filter (where t.side = 'b'), 1)
+         > coalesce(sum(v_streak[array_position(v_ids, t.id)]) filter (where t.side = 'b'), 0) * greatest(count(*) filter (where t.side = 'a'), 1)
+      then 'b' else 'a' end
+    into v_stay
+    from (select x2 as id, 'a' as side from unnest(m.team_a) as x2
+          union all select x2, 'b' from unnest(m.team_b) as x2) t
+    where t.id = any(v_ids);
+  end if;
+
   v_win := array(
     select array_position(v_ids, t.id)
-    from unnest(case when m.winner = 'a' then m.team_a else m.team_b end) with ordinality as t(id, o)
+    from unnest(case when v_stay = 'a' then m.team_a else m.team_b end) with ordinality as t(id, o)
     where t.id = any(v_ids) order by t.o);
   v_lose := array(
     select array_position(v_ids, t.id)
-    from unnest(case when m.winner = 'a' then m.team_b else m.team_a end) with ordinality as t(id, o)
+    from unnest(case when v_stay = 'a' then m.team_b else m.team_a end) with ordinality as t(id, o)
     where t.id = any(v_ids) order by t.o);
   v_size := least((select g.team_size from public.groups g where g.id = m.group_id), v_n / 2);
 
@@ -1409,8 +1468,9 @@ begin
     where not (g = any(v_winner_team)) and not (g = any(v_new_team)) order by g);
 
   return jsonb_build_object(
-    'team_a', private.ids_json(case when m.winner = 'a' then v_winner_team else v_new_team end, v_ids),
-    'team_b', private.ids_json(case when m.winner = 'b' then v_winner_team else v_new_team end, v_ids),
+    'team_a', private.ids_json(case when v_stay = 'a' then v_winner_team else v_new_team end, v_ids),
+    'team_b', private.ids_json(case when v_stay = 'b' then v_winner_team else v_new_team end, v_ids),
+    'stays', v_stay,
     'bench', private.ids_json(v_bench, v_ids),
     'leaving', private.ids_json(v_leaving, v_ids),
     'entering', private.ids_json(v_entering, v_ids));

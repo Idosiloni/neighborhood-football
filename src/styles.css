@@ -708,6 +708,8 @@ p { margin: 0; }
 .winner-card { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; color: #fff; }
 .winner-card.team-a { background: var(--blue); }
 .winner-card.team-b { background: var(--orange); }
+.winner-card.draw { background: var(--surface); color: var(--text); box-shadow: 0 0 0 2px var(--line-strong), var(--shadow); }
+.winner-icon { font-size: 2rem; line-height: 1; }
 .winner-card strong { font-size: 1.5rem; }
 .winner-score { font-family: var(--display); font-size: 2rem; line-height: 1; opacity: 0.9; }
 

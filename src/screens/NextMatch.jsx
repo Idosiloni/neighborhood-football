@@ -49,7 +49,8 @@ function Body({ matchId }) {
   const { match, players, suggestion, later } = data
   const byId = Object.fromEntries(players.map((p) => [p.id, p]))
   const marks = Object.fromEntries(suggestion.entering.map((id) => [id, 'in']))
-  const loser = match.winner === 'a' ? 'b' : 'a'
+  // The team going off: the loser, or after a draw the one that has been on longer (the rotation decides).
+  const loser = (suggestion.stays ?? match.winner) === 'a' ? 'b' : 'a'
 
   if (later) {
     return (

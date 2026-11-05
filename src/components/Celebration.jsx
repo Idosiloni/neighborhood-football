@@ -117,8 +117,8 @@ export default function Celebration() {
         </div>
       ) : (
         <div className="celebration-body">
-          <div className="celebration-trophy">🏆</div>
-          <div className="celebration-word small">{team ? t('match.teamWins', { team: team.name }) : t('match.fullTime')}</div>
+          <div className="celebration-trophy">{shown.team === 'draw' ? '🤝' : '🏆'}</div>
+          <div className="celebration-word small">{shown.team === 'draw' ? t('match.drawResult') : team ? t('match.teamWins', { team: team.name }) : t('match.fullTime')}</div>
           {shown.score && <Score score={shown.score} />}
         </div>
       )}

@@ -90,12 +90,26 @@ function combinations(list, k) {
   return [...combinations(rest, k - 1).map((c) => [first, ...c]), ...combinations(rest, k)]
 }
 
+// Which team stays on: the winner. After a draw, the team that has been on longer (more games in a
+// row on average, counting this one) goes off; level (e.g. the first match) = team A stays.
+// Same rule as suggest_rotation in the database.
+export function stayingSide(match, presentIds, tonightMatches) {
+  if (match.winner === 'a' || match.winner === 'b') return match.winner
+  const present = new Set(presentIds)
+  const upTo = tonightMatches.filter((m) => m.num <= match.num)
+  const side = (s) => match[`team_${s}`].filter((id) => present.has(id))
+  const sum = (ids) => ids.reduce((t, id) => t + playStreak(id, upTo), 0)
+  const a = side('a')
+  const b = side('b')
+  return sum(a) * Math.max(b.length, 1) > sum(b) * Math.max(a.length, 1) ? 'b' : 'a'
+}
+
 // After a match: the winner stays, everyone waiting comes in, and the same number leave the losing team.
 // Who leaves: longest streak of games in a row first, then most games tonight; strength breaks ties.
 // A goalkeeper-only player on the losing team stays, unless a goalkeeper-only player is waiting to come in.
 export function suggestRotation({ match, presentIds, playersById, ratingOf, tonightMatches, teamSize = TEAM_SIZE, random = Math.random }) {
   const present = new Set(presentIds)
-  const winSide = match.winner
+  const winSide = stayingSide(match, presentIds, tonightMatches)
   const loseSide = winSide === 'a' ? 'b' : 'a'
   const keeper = (id) => isKeeper(playersById[id] ?? {})
   const priority = (id) => playStreak(id, tonightMatches) * 10 + playedCount(id, tonightMatches)
@@ -159,6 +173,7 @@ export function suggestRotation({ match, presentIds, playersById, ratingOf, toni
   return {
     team_a: winSide === 'a' ? winnerTeam : newTeam,
     team_b: winSide === 'b' ? winnerTeam : newTeam,
+    stays: winSide,
     bench,
     leaving,
     entering,

@@ -16,7 +16,7 @@ export function computeStats(players, matches, goals, mvp = []) {
   const per = new Map(
     players.map((p) => [
       p.id,
-      { id: p.id, games: 0, wins: 0, losses: 0, goals: 0, assists: 0, streak: 0, bestStreak: 0, keeperGames: 0, conceded: 0, mvp: 0 },
+      { id: p.id, games: 0, wins: 0, draws: 0, losses: 0, goals: 0, assists: 0, streak: 0, bestStreak: 0, keeperGames: 0, conceded: 0, mvp: 0 },
     ]),
   )
   const duos = new Map()
@@ -27,6 +27,7 @@ export function computeStats(players, matches, goals, mvp = []) {
     for (const side of ['a', 'b']) {
       const team = m[`team_${side}`]
       const won = m.winner === side
+      const drew = m.winner === 'draw'
       const against = mg.filter((g) => g.team !== side).length
       for (const id of team) {
         const s = per.get(id)
@@ -36,6 +37,9 @@ export function computeStats(players, matches, goals, mvp = []) {
           s.wins++
           s.streak++
           s.bestStreak = Math.max(s.bestStreak, s.streak)
+        } else if (drew) {
+          s.draws++ // a draw is not a loss, but it ends a winning streak
+          s.streak = 0
         } else {
           s.losses++
           s.streak = 0
@@ -90,7 +94,7 @@ export function computeStats(players, matches, goals, mvp = []) {
 // Card rating from match results only (wins, goals, assists, games). Null until 3 games.
 export function overall(s) {
   if (s.games < 3) return null
-  const winRate = s.wins / s.games
+  const winRate = (s.wins + (s.draws ?? 0) / 2) / s.games // a draw counts as half a win
   const value =
     45 + winRate * 35 + Math.min(s.goals / s.games, 2) * 7 + Math.min(s.assists / s.games, 1.5) * 6 + (Math.min(s.games, 30) / 30) * 5
   return Math.min(99, Math.round(value))

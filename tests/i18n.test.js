@@ -4,7 +4,7 @@ import he from '../src/i18n/he/index.js'
 import en from '../src/i18n/en/index.js'
 import enGB from '../src/i18n/en-GB.js'
 import { formatKickoff, getLocale, setLocale, shortDate, t } from '../src/i18n/index.js'
-import { cleanOptions, optionsOf, validOptions } from '../src/lib/options.js'
+import { cleanOptions, matchRules, optionsOf, validOptions } from '../src/lib/options.js'
 
 const PLURAL = new Set(['zero', 'one', 'two', 'few', 'many', 'other'])
 const isPlural = (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).every((k) => PLURAL.has(k))
@@ -80,10 +80,17 @@ test('i18n: plurals, times and dates per language', () => {
 
 test('options: known keys and values only; defaults filled in and left out when saving', () => {
   assert.ok(validOptions({}))
-  assert.ok(validOptions({ lang: 'en' }))
-  for (const bad of [null, [], 'he', { lang: 'fr' }, { lang: 3 }, { color: 'red' }]) assert.ok(!validOptions(bad), JSON.stringify(bad))
-  assert.deepEqual(optionsOf(null), { lang: null })
-  assert.deepEqual(optionsOf({ options: { lang: 'he', junk: 1 } }), { lang: 'he' })
-  assert.deepEqual(cleanOptions({ lang: null, junk: 1 }), {})
-  assert.deepEqual(cleanOptions({ lang: 'en' }), { lang: 'en' })
+  assert.ok(validOptions({ lang: 'en', periods: 2, break_minutes: 10, tie: 'draw', team_a: 'red', team_b: 'white' }))
+  for (const bad of [null, [], 'he', { lang: 'fr' }, { lang: 3 }, { color: 'red' }, { periods: 2.5 }, { periods: '2' },
+    { periods: 5 }, { break_minutes: -1 }, { extra_minutes: 11 }, { tie: 'coin' }, { team_a: 'pink' },
+    { team_a: 'orange' }, { team_a: 'red', team_b: 'red' }])
+    assert.ok(!validOptions(bad), JSON.stringify(bad))
+  const all = optionsOf(null)
+  assert.equal(all.lang, null)
+  assert.equal(all.periods, 1)
+  assert.equal(all.tie, 'extra')
+  assert.equal(all.team_a, 'blue')
+  assert.deepEqual(optionsOf({ options: { lang: 'he', junk: 1, periods: 9 } }).periods, 1)
+  assert.deepEqual(cleanOptions({ lang: null, junk: 1, periods: 1, tie: 'draw' }), { tie: 'draw' })
+  assert.deepEqual(matchRules({ lang: 'he', periods: 2, tie: 'draw', team_a: 'red' }), { periods: 2, tie: 'draw' })
 })

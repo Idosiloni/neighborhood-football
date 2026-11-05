@@ -7,7 +7,7 @@ import { GAME, pickSettings } from '../lib/dates'
 import { getMyCode, setMyCode } from '../lib/identity'
 import { fromPositions, positionsOf } from '../lib/positions'
 import { compareNames, language, t } from '../i18n'
-import { cleanOptions, validOptions } from '../lib/options'
+import { cleanOptions, matchRules, validOptions } from '../lib/options'
 
 const KEY = 'football-demo-v3'
 
@@ -318,8 +318,9 @@ export function createMockApi() {
         winner: null, created_at: now(), ended_at: null, ...fields,
       }
       // Keeps the rules it started with, like the database does.
-      const { match_minutes, win_goals } = settingsOf(state.groups.find((g) => g.id === myGroupId()))
-      Object.assign(m, { match_minutes, win_goals })
+      const group = state.groups.find((g) => g.id === myGroupId())
+      const { match_minutes, win_goals } = settingsOf(group)
+      Object.assign(m, { match_minutes, win_goals, rules: matchRules(group.options), period: 1, break_since: null })
       state.matches.push(m)
       save()
       return copy(m)

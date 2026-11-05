@@ -3,7 +3,7 @@ import { api } from '../data'
 import { useLoad, useLiveUpdates, useTicker } from '../lib/hooks'
 import { useMember } from '../lib/member'
 import { useSchemaReady } from '../lib/schema'
-import { formatClock, nextState, phaseStart, remaining, scoreOf, shownElapsed, winGoals } from '../lib/clock'
+import { breakLeft, extraMs, formatClock, nextState, periodOf, phaseStart, remaining, rulesOf, scoreOf, shownElapsed, startFields, winGoals } from '../lib/clock'
 import { TEAM } from '../lib/teamsMeta'
 import { go } from '../lib/router'
 import PageHeader from '../components/PageHeader'
@@ -16,7 +16,6 @@ import Lineup from '../components/Lineup'
 import { readManaging, writeManaging } from '../lib/managing'
 import { celebrate } from '../components/Celebration'
 import { play } from '../lib/sound'
-import { sport } from '../sports'
 import { t } from '../i18n'
 
 // Short beep + vibration when the match changes phase or ends.
@@ -119,8 +118,14 @@ function MatchBody({ id }) {
   }, [m, goals, data])
 
   const control = managing && member && m?.status === 'live'
-  useTicker(Boolean(m?.running_since))
-  useWakeLock(control && Boolean(m?.running_since))
+  const onBreak = m?.phase === 'break'
+  useTicker(Boolean(m?.running_since) || onBreak)
+  useWakeLock(control && (Boolean(m?.running_since) || onBreak))
+  // The end of half-time: a whistle on the manager's phone (the manager starts the next half).
+  const breakDone = onBreak && breakLeft(m) <= 0
+  useEffect(() => {
+    if (control && breakDone) signal()
+  }, [control, breakDone])
 
   const update = async (fields, opts) => {
     setM((cur) => ({ ...cur, ...fields }))
@@ -158,10 +163,20 @@ function MatchBody({ id }) {
   const finished = m.status === 'finished'
   const finalSeconds = running && left !== null && left <= 10_000
   // Clock stopped exactly where extra time / golden goal begins: waiting for the manager to start it.
-  const waitingPhase = !finished && !running && m.phase !== 'regular' && m.clock_ms === phaseStart(m)
+  const waitingPhase = !finished && !running && (m.phase === 'extra' || m.phase === 'golden') && m.clock_ms === phaseStart(m)
+  const { periods } = rulesOf(m)
+  // "מחצית 2" / "Half 2" in a long game; nothing for a short match.
+  const partName = (num) => (periods > 1 ? t(`match.periodName.${Math.min(periods, 4)}`, { num }) : null)
+  const brk = onBreak ? breakLeft(m) : null
+  const penalties = !finished && m.phase === 'penalties'
+  const phaseLabel = finished
+    ? t('match.finished')
+    : m.phase === 'regular' && periods > 1
+      ? partName(periodOf(m))
+      : t(`match.phase.${m.phase}`)
 
   const now = () => new Date().toISOString()
-  const start = () => update({ running_since: now() })
+  const start = () => update(startFields(m))
   const pause = () => update({ clock_ms: shownElapsed(m), running_since: null })
 
   const addGoal = async (team, scorer, assist) => {
@@ -226,24 +241,30 @@ function MatchBody({ id }) {
 
       <FinalTicks on={control && finalSeconds} left={left} />
       <div className={`clock-card${running ? ' running' : ''}${m.phase !== 'regular' ? ` phase-${m.phase}` : ''}${finalSeconds ? ' final-seconds' : ''}`}>
-        <span className="phase-pill">{finished ? t('match.finished') : t(`match.phase.${m.phase}`)}</span>
+        <span className="phase-pill">{phaseLabel}</span>
         <div className="clock" dir="ltr">
-          {finished ? formatClock(m.clock_ms) : left === null ? formatClock(shownElapsed(m)) : formatClock(left)}
+          {finished
+            ? formatClock(m.clock_ms)
+            : onBreak
+              ? formatClock(brk)
+              : left === null ? formatClock(shownElapsed(m)) : formatClock(left)}
         </div>
         <span className="muted small">
           {finished
             ? t('match.played', { time: formatClock(m.clock_ms) })
-            : m.phase === 'golden'
-              ? t('match.nextGoalWins')
-              : winGoals(m)
-                ? t('match.firstTo', { count: winGoals(m) })
-                : t('match.untilTime')}
+            : onBreak
+              ? brk > 0 ? t('match.breakLeft') : t('match.breakOver')
+              : m.phase === 'golden'
+                ? t('match.nextGoalWins')
+                : winGoals(m)
+                  ? t('match.firstTo', { count: winGoals(m) })
+                  : t('match.untilTime')}
         </span>
       </div>
 
       {waitingPhase && (
         <div className="card phase-banner">
-          <strong>{m.phase === 'extra' ? t('match.extraBanner', { count: sport.extraMinutes }) : t('match.goldenBanner')}</strong>
+          <strong>{m.phase === 'extra' ? t('match.extraBanner', { count: extraMs(m) / 60_000 }) : t('match.goldenBanner')}</strong>
           <p className="muted">
             {m.phase === 'extra'
               ? winGoals(m)
@@ -254,13 +275,39 @@ function MatchBody({ id }) {
         </div>
       )}
 
-      {finished && (
+      {onBreak && (
+        <div className="card phase-banner">
+          <strong>{t('match.breakTitle')}</strong>
+          <p className="muted">{t('match.breakSub', { part: partName(periodOf(m)) })}</p>
+        </div>
+      )}
+
+      {penalties && (
+        <div className="card phase-banner">
+          <strong>{t('match.penaltiesBanner')}</strong>
+          <p className="muted">{t('match.penaltiesRule')}</p>
+          {control && (
+            <div className="row">
+              <button className="btn team-a-bg" onClick={() => endManually('a')}>{t('match.wonOnPenalties', { team: TEAM.a.name })}</button>
+              <button className="btn team-b-bg" onClick={() => endManually('b')}>{t('match.wonOnPenalties', { team: TEAM.b.name })}</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {finished && (m.winner === 'draw' ? (
+        <div className="card winner-card draw">
+          <span className="winner-icon" aria-hidden="true">🤝</span>
+          <strong>{t('match.drawResult')}</strong>
+          <span className="winner-score" dir="ltr">{score.a} – {score.b}</span>
+        </div>
+      ) : (
         <div className={`card winner-card team-${m.winner}`}>
           <Icon name="trophy" size={34} />
           <strong>{t('match.teamWon', { team: TEAM[m.winner].name })}</strong>
           <span className="winner-score" dir="ltr">{Math.max(score.a, score.b)} – {Math.min(score.a, score.b)}</span>
         </div>
-      )}
+      ))}
 
       <div className="score-row">
         {['a', 'b'].map((side) => (
@@ -291,7 +338,7 @@ function MatchBody({ id }) {
           {running ? (
             <button className="ctrl-main" onClick={pause} aria-label={t('match.pauseClock')}><Icon name="pause" size={34} /></button>
           ) : (
-            <button className="ctrl-main go" onClick={start} aria-label={t('match.startClock')}><Icon name="play" size={34} /></button>
+            <button className="ctrl-main go" onClick={start} disabled={penalties} aria-label={t('match.startClock')}><Icon name="play" size={34} /></button>
           )}
           <button className="ctrl-btn" onClick={() => setSheet({ kind: 'menu' })} aria-label={t('match.options')}>
             <Icon name="more" />
@@ -299,13 +346,15 @@ function MatchBody({ id }) {
           </button>
         </div>
       )}
-      {control && !running && (
+      {control && !running && !penalties && (
         <p className="center muted small">
           {m.clock_ms === 0
             ? t('match.tapToStart')
-            : waitingPhase
-              ? t(m.phase === 'extra' ? 'match.tapToStartExtra' : 'match.tapToStartGolden')
-              : t('match.clockStopped')}
+            : onBreak
+              ? t('match.tapToStartNext')
+              : waitingPhase
+                ? t(m.phase === 'extra' ? 'match.tapToStartExtra' : 'match.tapToStartGolden')
+                : t('match.clockStopped')}
         </p>
       )}
 
@@ -365,6 +414,7 @@ function MatchBody({ id }) {
               <button className="btn team-a-bg" onClick={() => endManually('a')}>{t('match.teamWon', { team: TEAM.a.name })}</button>
               <button className="btn team-b-bg" onClick={() => endManually('b')}>{t('match.teamWon', { team: TEAM.b.name })}</button>
             </div>
+            {score.a === score.b && <button className="btn ghost" onClick={() => endManually('draw')}>🤝 {t('match.endDraw')}</button>}
             <button className="btn ghost" onClick={() => { writeManaging(null); setManaging(false); setSheet(null) }}>{t('match.stopManaging')}</button>
             <button className="link-btn danger" onClick={cancelMatch}>{t('match.cancelMatch')}</button>
           </div>

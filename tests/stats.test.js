@@ -35,6 +35,23 @@ test('streaks: current and best', () => {
   assert.equal(s.byId.b1.streak, 0)
 })
 
+test('draws: neither a win nor a loss for either side; they end a streak and count half in the rating', () => {
+  const list = [m(1, 'a'), m(2, 'a'), m(3, 'draw')]
+  const s = computeStats(players, list, [])
+  assert.equal(s.matchCount, 3)
+  for (const id of ['a1', 'b1']) assert.equal(s.byId[id].draws, 1)
+  assert.equal(s.byId.a1.wins, 2)
+  assert.equal(s.byId.a1.losses, 0)
+  assert.equal(s.byId.b1.losses, 2)
+  assert.equal(s.byId.a1.streak, 0)
+  assert.equal(s.byId.a1.bestStreak, 2)
+  assert.ok(s.byId.a1.overall > s.byId.b1.overall)
+  // all draws: in between all wins and all losses
+  const d = computeStats(players, [m(1, 'draw'), m(2, 'draw'), m(3, 'draw')], [])
+  const w = computeStats(players, [m(1, 'a'), m(2, 'a'), m(3, 'a')], [])
+  assert.ok(d.byId.a1.overall < w.byId.a1.overall && d.byId.a1.overall > w.byId.b1.overall)
+})
+
 test('keeper conceded counts goals against his team', () => {
   const s = computeStats(players, matches, goals)
   assert.equal(s.byId.k.keeperGames, 4)

@@ -1,6 +1,10 @@
 // British English words that differ from American, as full keys: { 'ns.key': 'text' }.
 // The match area: a "match" (not a "game"), pitch, draw, normal time, player of the match.
 export default {
+  'match.penaltiesBanner': '🥅 A draw! Time for penalties',
+  'match.draw': 'Draw',
+  'match.drawResult': "It's a draw!",
+  'match.endDraw': 'Draw',
   'match.title': 'Match',
   'match.num': 'Match {num}',
   'match.notFound': 'Match not found (maybe it was cancelled).',
