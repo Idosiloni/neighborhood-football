@@ -23,8 +23,13 @@ const toKey = (b64) => {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0))
 }
 
+// The app's service worker (null if it isn't running: dev server, or it failed to install).
+const worker = (wait) =>
+  wait ? Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(() => r(null), 8000))]) : navigator.serviceWorker.getRegistration()
+
 async function subscription(create) {
-  const reg = await navigator.serviceWorker.ready
+  const reg = await worker(create)
+  if (!reg) return null
   const sub = await reg.pushManager.getSubscription()
   if (sub || !create) return sub
   return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toKey(KEY) })
@@ -42,6 +47,7 @@ export async function turnPushOn() {
   if (pushState() !== 'ok') return false
   if ((await Notification.requestPermission()) !== 'granted') return false
   const sub = await subscription(true)
+  if (!sub) return false
   await api.savePush(getMyCode(), sub.toJSON())
   return true
 }
