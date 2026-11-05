@@ -85,9 +85,9 @@ test('schema: can be run again (third time) without errors', async () => {
   await db.exec(SCHEMA)
 })
 
-test('schema: schema_version() = 5 for anyone', async () => {
-  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 5)
-  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 5)
+test('schema: schema_version() = 6 for anyone', async () => {
+  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 6)
+  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 6)
 })
 
 test('schema: no table sends its rows over realtime (only content-free pings)', async () => {
@@ -1015,13 +1015,13 @@ test('join code: only the admin replaces it; the old link stops working', async 
   assert.ok(!(await join(fresh.toUpperCase(), 'Another')).error)
 })
 
-test('schema: running it again keeps groups and join codes; schema_version still 5', async () => {
+test('schema: running it again keeps groups and join codes; schema_version still 6', async () => {
   const jc = await joinCode()
   const groups = await count(db, 'select count(*)::int as n from public.groups')
   await db.exec(SCHEMA)
   assert.equal(await joinCode(), jc)
   assert.equal(await count(db, 'select count(*)::int as n from public.groups'), groups)
-  assert.equal((await one(db, 'select public.schema_version() as v')).v, 5)
+  assert.equal((await one(db, 'select public.schema_version() as v')).v, 6)
 })
 
 // ───────────── Several positions per player ─────────────
@@ -1252,7 +1252,7 @@ test('upgrade: v1 data (players, codes, ballots, ratings) survives the new schem
   assert.deepEqual((await one(up, 'select positions, can_gk from public.players where id = $1', [pid.d])), { positions: ['gk'], can_gk: true })
   assert.equal(await count(up, 'select count(*)::int as n from public.ballots where moved is null'), 0)
   assert.deepEqual((await one(up, 'select positions from public.players where id = $1', [pid.a])).positions, [])
-  assert.equal((await one(up, 'select public.schema_version() as v')).v, 5)
+  assert.equal((await one(up, 'select public.schema_version() as v')).v, 6)
   // groups from before options existed played in Hebrew, and keep it
   assert.deepEqual((await one(up, 'select options from public.groups')).options, { lang: 'he' })
   assert.equal(await count(up, 'select count(*)::int as n from public.groups'), 1)
@@ -1422,4 +1422,92 @@ test('leave_group: he becomes inactive and his code stops working; the last admi
   assert.equal((await one(db, 'select active from public.players where id = $1', [pid])).active, false)
   assert.match((await as(db, 'anon', 'select public.leave_group($1)', [code])).error ?? '', /invalid code/)
   assert.match((await as(db, 'anon', 'select public.leave_group($1)', [g.adminCode])).error ?? '', /last admin/)
+})
+
+// ───────────── version 6: options patch, admin stars, one-tap sign-up ─────────────
+
+test('set_options: changes only what it is given (null = default), keeps the rest; admins only', async () => {
+  await db.query(`update public.groups set options = '{"lang": "he", "tie": "draw"}' where id = $1`, [G.id])
+  const r = await as(db, 'admin', 'select public.set_options($1) as o', [{ mvp: false, rating: 'admin' }])
+  assert.ok(!r.error, r.error)
+  assert.deepEqual(r.rows[0].o, { lang: 'he', tie: 'draw', mvp: false, rating: 'admin' })
+  const back = await as(db, 'admin', 'select public.set_options($1) as o', [{ mvp: null, rating: null }])
+  assert.deepEqual(back.rows[0].o, { lang: 'he', tie: 'draw' })
+  for (const who of [MEMBER, 'anon', 'other']) assert.ok((await as(db, who, 'select public.set_options($1)', [{ mvp: false }])).error)
+  for (const bad of [{ mvp: 'no' }, { rating: 'coach' }, { quick_signup: 1 }, [], 'x'])
+    assert.ok((await as(db, 'admin', 'select public.set_options($1)', [bad])).error, JSON.stringify(bad))
+  await db.query(`update public.groups set options = '{}' where id = $1`, [G.id])
+})
+
+test('stars: only admins rate and read them; members, strangers and other groups never see them', async () => {
+  assert.ok(!(await as(db, 'admin', 'select public.set_stars($1, 5)', [P.p0])).error)
+  assert.ok(!(await as(db, 'admin', 'select public.set_stars($1, 1)', [P.p1])).error)
+  const rows = (await as(db, 'admin', 'select * from public.admin_stars()')).rows
+  assert.equal(rows.find((r) => r.player_id === P.p0).stars, 5)
+  assert.equal(rows.find((r) => r.player_id === P.p2).stars, null)
+  for (const who of [MEMBER, 'anon', 'other', { code: H.adminCode }]) {
+    assert.ok((await as(db, who, 'select * from public.coach_ratings')).error || (await as(db, who, 'select * from public.coach_ratings')).rows.length === 0)
+    if (who !== 'anon' && who !== 'other' && !(typeof who === 'object' && who.code === H.adminCode)) assert.ok((await as(db, who, 'select * from public.admin_stars()')).error)
+    assert.ok((await as(db, who, 'select public.set_stars($1, 3)', [P.p2])).error, JSON.stringify(who))
+  }
+  for (const bad of [0, 6]) assert.ok((await as(db, 'admin', 'select public.set_stars($1, $2)', [P.p2, bad])).error)
+  assert.ok(!(await as(db, 'admin', 'select public.set_stars($1, null)', [P.p1])).error) // removed
+  assert.equal((await as(db, 'admin', 'select * from public.admin_stars()')).rows.find((r) => r.player_id === P.p1).stars, null)
+  await db.query('delete from public.coach_ratings')
+})
+
+test('stars: a group that rates by stars makes teams from them; "none" = everyone the same; ballots come back', async () => {
+  const scores = async () => Object.fromEntries((await db.query('select * from private.player_scores($1)', [G.id])).rows.map((r) => [r.player_id, Number(r.score)]))
+  const peers = await scores()
+  await db.query(`update public.groups set options = '{"rating": "admin"}' where id = $1`, [G.id])
+  await as(db, 'admin', 'select public.set_stars($1, 5)', [P.p0])
+  await as(db, 'admin', 'select public.set_stars($1, 2)', [P.p1])
+  const byStars = await scores()
+  assert.equal(byStars[P.p0], 100)
+  assert.equal(byStars[P.p1], 25)
+  assert.equal(byStars[P.p2], 50) // not rated
+  await db.query(`update public.groups set options = '{"rating": "none"}' where id = $1`, [G.id])
+  assert.ok(Object.values(await scores()).every((v) => v === 50))
+  await db.query(`update public.groups set options = '{}' where id = $1`, [G.id])
+  assert.deepEqual(await scores(), peers)
+  await db.query('delete from public.coach_ratings')
+})
+
+test('quick sign-up: off by default; on: the list (no codes, no photos), tap in and out, only the game day', async () => {
+  const day = await one(db, `select (current_date + ((6 - extract(dow from current_date)::int + 7) % 7))::date as d`) // next Saturday (G plays Saturdays)
+  const { join_code: join } = await one(db, 'select join_code from public.groups where id = $1', [G.id]) // replaced by an earlier test
+  const roster = (who = 'anon', d = day.d) => as(db, who, 'select public.quick_roster($1, $2) as r', [join, d])
+  const tap = (player, coming, d = day.d) => as(db, 'anon', 'select public.quick_signup($1, $2, $3, $4)', [join, player, d, coming])
+  assert.equal((await roster()).rows[0].r, null)
+  assert.ok((await tap(P.p0, true)).error)
+
+  await db.query(`update public.groups set options = '{"quick_signup": true}' where id = $1`, [G.id])
+  const r = (await roster()).rows[0].r
+  assert.equal(r.id, G.id)
+  assert.ok(r.players.length > 5)
+  assert.deepEqual(Object.keys(r.players[0]).sort(), ['emoji', 'id', 'name'])
+  assert.ok(!JSON.stringify(r).includes(ADMIN_CODE.get(db)))
+  assert.deepEqual(r.coming, [])
+
+  assert.ok(!(await tap(P.p0, true)).error)
+  assert.ok(!(await tap(P.p1, true)).error)
+  assert.ok(!(await tap(P.p0, true)).error) // twice is fine
+  assert.deepEqual((await roster()).rows[0].r.coming, [P.p0, P.p1])
+  assert.ok(!(await tap(P.p0, false)).error)
+  assert.deepEqual((await roster()).rows[0].r.coming, [P.p1])
+
+  // not the game day, too far ahead, a player of another group, an inactive player
+  const friday = await one(db, `select ($1::date - 1) as d`, [day.d])
+  assert.match((await tap(P.p1, true, friday.d)).error ?? '', /invalid day/)
+  const far = await one(db, `select ($1::date + 14) as d`, [day.d])
+  assert.match((await tap(P.p1, true, far.d)).error ?? '', /invalid day/)
+  assert.ok((await tap(H.adminId, true)).error)
+  assert.ok((await tap(P.gone, true)).error)
+  // a cancelled game takes no sign-ups
+  assert.ok(!(await as(db, 'admin', `update public.nights set cancelled = true where day = $1`, [day.d])).error)
+  assert.match((await tap(P.p2, true)).error ?? '', /no game/)
+  assert.equal((await roster()).rows[0].r.cancelled, true)
+
+  await db.query(`delete from public.nights where group_id = $1 and day = $2`, [G.id, day.d])
+  await db.query(`update public.groups set options = '{}' where id = $1`, [G.id])
 })

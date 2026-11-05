@@ -18,13 +18,14 @@ import Place from './screens/Place'
 import Welcome from './screens/Welcome'
 import CreateGroup from './screens/CreateGroup'
 import Hello from './screens/Hello'
+import QuickSignup from './screens/QuickSignup'
 import Celebration from './components/Celebration'
 import { setGroupLanguage, t, useLocale } from './i18n'
 import { optionsOf } from './lib/options'
 import { applyTeamColors } from './lib/teamColors'
 
 // Screens that work before this phone is in any group.
-const OPEN = new Set(['v', 'vote', 'join', 'new'])
+const OPEN = new Set(['v', 'vote', 'join', 'new', 'in'])
 
 function Screen({ page, param }) {
   switch (page) {
@@ -48,6 +49,8 @@ function Screen({ page, param }) {
       return <Me edit={param === 'edit'} />
     case 'place':
       return <Place />
+    case 'in':
+      return <QuickSignup joinCode={param} />
     case 'join':
       return <Join joinCode={param} />
     case 'new':
@@ -72,7 +75,7 @@ function useSession(code, page) {
       api.getGroup().then((g) => {
         if (!g) return
         applyTeamColors(g.options)
-        if (page !== 'join') setGroupLanguage('options' in g ? optionsOf(g).lang : 'he')
+        if (page !== 'join' && page !== 'in') setGroupLanguage('options' in g ? optionsOf(g).lang : 'he')
       }, () => {})
     }
     return { me, invalid: !me }

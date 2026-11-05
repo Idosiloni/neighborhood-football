@@ -4,7 +4,7 @@ import { useLoad, useLiveUpdates, useTicker } from '../lib/hooks'
 import { play } from '../lib/sound'
 import { getMyCode } from '../lib/identity'
 import { gameLabel, nextGameDay, today } from '../lib/dates'
-import { useSchedule } from '../lib/schedule'
+import { useOptions, useSchedule } from '../lib/schedule'
 import Avatar from './Avatar'
 import { dayName, formatKickoff, shortDate, t } from '../i18n'
 
@@ -18,19 +18,21 @@ function dayParts(day) {
 // On game day these sign-ups are the attendance, in this order.
 export default function SignupCard() {
   const schedule = useSchedule()
+  const opts = useOptions()
   const day = nextGameDay(new Date(), schedule)
   const code = getMyCode()
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const { data, reload } = useLoad(async () => {
-    const [players, night, me] = await Promise.all([
+    const [players, night, me, joinCode] = await Promise.all([
       api.listPlayers(),
       api.getNight(day),
       code ? api.getVoter(code).catch(() => null) : null,
+      api.getJoinCode().catch(() => null),
     ])
     const attendance = night ? await api.listAttendance(night.id) : []
-    return { players, night, attendance, me }
+    return { players, night, attendance, me, joinCode }
   }, [day, code])
   useLiveUpdates(reload)
 
@@ -63,6 +65,16 @@ export default function SignupCard() {
     } finally {
       setBusy(false)
     }
+  }
+
+  // "Who's coming?" for the group's WhatsApp: with one-tap sign-up, a link that needs nothing;
+  // otherwise the app (everyone signs up with their personal link).
+  const askMessage = () => {
+    const base = `${window.location.origin}${window.location.pathname}`
+    const lines = [t('home.signup.askHeader', { when: gameLabel(day, schedule) })]
+    if (list.length) lines.push(t('home.signup.askSoFar', { count: list.length }))
+    lines.push(opts.quick_signup ? t('home.signup.askQuick', { link: `${base}#/in/${data.joinCode}` }) : t('home.signup.askApp', { link: base }))
+    return lines.join('\n')
   }
 
   const copyList = async () => {
@@ -107,6 +119,11 @@ export default function SignupCard() {
         </button>
       ) : (
         <a className="btn ghost" href="#/join">{t('home.signup.joinFirst')}</a>
+      )}
+      {me && data.joinCode && (
+        <a className="btn small wa" href={`https://wa.me/?text=${encodeURIComponent(askMessage())}`} target="_blank" rel="noreferrer">
+          📣 {t('home.signup.ask')}
+        </a>
       )}
       {list.length > 0 && (
         <button className="link-btn" onClick={copyList}>{copied ? t('home.signup.copied') : t('home.signup.copy')}</button>

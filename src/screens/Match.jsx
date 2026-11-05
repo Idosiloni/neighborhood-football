@@ -17,6 +17,7 @@ import { readManaging, writeManaging } from '../lib/managing'
 import { celebrate } from '../components/Celebration'
 import { play } from '../lib/sound'
 import { t } from '../i18n'
+import { useOptions } from '../lib/schedule'
 
 // Short beep + vibration when the match changes phase or ends.
 function signal() {
@@ -73,6 +74,7 @@ export default function Match({ id }) {
 
 function MatchBody({ id }) {
   const member = useMember()
+  const opts = useOptions() // MVP vote and assists only for groups that use them
   const { data: admin } = useLoad(() => api.getAdmin().catch(() => false), [])
   const [managing, setManaging] = useState(() => readManaging() === id)
   const [m, setM] = useState(null)
@@ -363,7 +365,7 @@ function MatchBody({ id }) {
       )}
       {!finished && member === false && <p className="note center">{t('match.viewOnly')}</p>}
 
-      {finished && <MvpVote match={m} byId={byId} />}
+      {finished && opts.mvp && <MvpVote match={m} byId={byId} />}
 
       {finished && member && (
         <div className="stack">
@@ -395,6 +397,7 @@ function MatchBody({ id }) {
 
       {sheet?.kind === 'goal' && (
         <GoalSheet
+          askAssist={opts.assists}
           team={sheet.team}
           players={m[`team_${sheet.team}`].map((pid) => byId[pid]).filter(Boolean)}
           onClose={() => setSheet(null)}
@@ -434,7 +437,7 @@ function FinalTicks({ on, left }) {
 }
 
 // Two steps: who scored, then who assisted (both optional).
-function GoalSheet({ team, players, onClose, onSave }) {
+function GoalSheet({ team, players, onClose, onSave, askAssist = true }) {
   const [scorer, setScorer] = useState(undefined)
 
   if (scorer === undefined) {
@@ -442,7 +445,7 @@ function GoalSheet({ team, players, onClose, onSave }) {
       <Sheet title={t('match.whoScored', { team: TEAM[team].name })} onClose={onClose}>
         <div className="pick-grid">
           {players.map((p) => (
-            <button key={p.id} className="pick" onClick={() => setScorer(p.id)}>
+            <button key={p.id} className="pick" onClick={() => (askAssist ? setScorer(p.id) : onSave(team, p.id, null))}>
               <Avatar player={p} size={48} />
               <span>{p.name}</span>
             </button>

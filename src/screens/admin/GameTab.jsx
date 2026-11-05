@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { api } from '../../data'
 import { useLoad } from '../../lib/hooks'
 import { gameLabel, nextGameDay } from '../../lib/dates'
-import { RulesFields, WhenFields } from '../../components/GameSettings'
+import { LevelFields, RulesFields, WhenFields } from '../../components/GameSettings'
 import { forgetSchedule } from '../../lib/schedule'
 import { setGroupLanguage, t } from '../../i18n'
 import { optionsOf } from '../../lib/options'
 import { applyTeamColors } from '../../lib/teamColors'
+
+const RULE_KEYS = ['format', 'periods', 'break_minutes', 'extra_minutes', 'tie', 'team_a', 'team_b']
 
 // The group's name, when and where we play, the game rules, and switching off one week.
 export default function GameTab({ group, reload: reloadGroup }) {
@@ -28,8 +30,11 @@ export default function GameTab({ group, reload: reloadGroup }) {
       await api.saveSchedule({ ...s, venue: s.venue?.trim() || null })
       // The game options (format, halves, tie rule…) live with the group's other options; the language stays.
       if (group && 'options' in group && s.options) {
-        await api.saveOptions({ ...optionsOf(group), ...s.options, lang: optionsOf(group).lang })
-        applyTeamColors(s.options)
+        // Only the game rules: the language and the level have their own cards (and save right away).
+        const rules = Object.fromEntries(RULE_KEYS.map((k) => [k, optionsOf(s)[k]]))
+        const saved = await api.saveOptions(rules)
+        applyTeamColors(saved)
+        forgetSchedule()
         await reloadGroup()
       }
       forgetSchedule()
@@ -51,6 +56,7 @@ export default function GameTab({ group, reload: reloadGroup }) {
   return (
     <section className="stack">
       {group && <GroupName group={group} onSaved={reloadGroup} />}
+      {group && 'options' in group && <GroupLevel group={group} onSaved={reloadGroup} />}
       {group && 'options' in group && <GroupLanguage group={group} onSaved={reloadGroup} />}
 
       <div className="card stack">
@@ -80,6 +86,33 @@ export default function GameTab({ group, reload: reloadGroup }) {
   )
 }
 
+// How much the players do (saved right away, like the language).
+function GroupLevel({ group, onSaved }) {
+  const [options, setOptions] = useState(() => optionsOf(group))
+  const [status, setStatus] = useState('')
+  const change = async (fields) => {
+    const before = options
+    setOptions({ ...options, ...fields })
+    setStatus('saving')
+    try {
+      await api.saveOptions(fields)
+      forgetSchedule()
+      await onSaved()
+      setStatus('saved')
+    } catch {
+      setOptions(before)
+      setStatus('error')
+    }
+  }
+  return (
+    <div className="card stack">
+      <LevelFields value={options} onChange={change} disabled={status === 'saving'} />
+      {status === 'saved' && <p className="ok">{t('admin.saved')}</p>}
+      {status === 'error' && <p className="err">{t('admin.saveFailed')}</p>}
+    </div>
+  )
+}
+
 // The group's language: what every phone shows unless it picked its own (needs schema version 4).
 function GroupLanguage({ group, onSaved }) {
   const options = optionsOf(group)
@@ -87,7 +120,8 @@ function GroupLanguage({ group, onSaved }) {
   const pick = async (lang) => {
     setStatus('saving')
     try {
-      await api.saveOptions({ ...options, lang })
+      await api.saveOptions({ lang })
+      forgetSchedule()
       await onSaved()
       setStatus('')
       setGroupLanguage(lang)

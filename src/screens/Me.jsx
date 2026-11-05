@@ -16,8 +16,10 @@ import { hasPhoto } from '../lib/photos'
 import { GOAL_SOUNDS, goalSound, preview, setGoalSound, setSoundOn, soundOn } from '../lib/sound'
 import { LOCALES, pickedLocale, setLocale, t } from '../i18n'
 import { setTextSize, TEXT_SIZES, textSize } from '../lib/textSize'
+import { useOptions } from '../lib/schedule'
 
 export default function Me({ edit = false }) {
+  const opts = useOptions() // which features this group uses
   const [code, setCode] = useState(getMyCode)
   const ready = useSchemaReady()
   const { data: me } = useLoad(async () => {
@@ -82,7 +84,7 @@ export default function Me({ edit = false }) {
       )}
       {ready && <InviteButton />}
       {ready && <CardBody id={me.id} />}
-      <a className="btn ghost" href={`#/v/${code}`}>🗳️ {me.ranking ? t('onboarding.me.updateRanking') : t('onboarding.me.rank')}</a>
+      {opts.rating === 'peers' && <a className="btn ghost" href={`#/v/${code}`}>🗳️ {me.ranking ? t('onboarding.me.updateRanking') : t('onboarding.me.rank')}</a>}
       {me.is_admin && <a className="btn ghost" href="#/admin"><Icon name="gear" size={18} /> {t('onboarding.me.manage')}</a>}
       <MyLink code={code} admin={me.is_admin} />
       <GroupSwitcher label={t('onboarding.me.myGroups')} className="on-light" />

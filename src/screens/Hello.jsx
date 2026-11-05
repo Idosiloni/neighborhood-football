@@ -8,6 +8,7 @@ import Avatar from '../components/Avatar'
 import InstallHint from '../components/InstallHint'
 import { rulesSummary } from '../components/GameSettings'
 import { t, tx } from '../i18n'
+import { optionsOf } from '../lib/options'
 
 // Right after joining a group: what this group is, when it plays, and what to do first.
 export default function Hello() {
@@ -23,6 +24,7 @@ export default function Hello() {
   const { me, players } = data
   const meFull = players.find((p) => p.id === me.id) ?? me
   const others = players.filter((p) => p.active && p.id !== me.id).length
+  const peers = optionsOf(schedule).rating === 'peers'
   const when = gameLabel(nextGameDay(new Date(), schedule), schedule)
   const step = (n) => tx(`onboarding.hello.step${n}`, { b: <b>{t(`onboarding.hello.step${n}b`)}</b> })
 
@@ -49,12 +51,13 @@ export default function Hello() {
         <li>{step(3)}</li>
       </ol>
 
-      {others > 0 ? (
+      {/* Ranking right away, unless the group doesn't rank (the admin rates, or nobody does). */}
+      {others > 0 && peers ? (
         <button className="btn big" onClick={() => go(`/v/${code}`)}>{t('onboarding.hello.rankNow')}</button>
-      ) : (
+      ) : others === 0 ? (
         <p className="muted center">{t('onboarding.hello.noOne')}</p>
-      )}
-      <button className={`btn big${others > 0 ? ' ghost' : ''}`} onClick={() => go('/')}>{others > 0 ? t('onboarding.hello.later') : t('onboarding.hello.home')}</button>
+      ) : null}
+      <button className={`btn big${others > 0 && peers ? ' ghost' : ''}`} onClick={() => go('/')}>{others > 0 && peers ? t('onboarding.hello.later') : t('onboarding.hello.home')}</button>
       <InstallHint />
     </main>
   )

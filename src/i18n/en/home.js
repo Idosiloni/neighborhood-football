@@ -38,6 +38,11 @@ export default {
   manage: 'Manage the group',
 
   signup: {
+    ask: 'Send "Who\'s coming?" on WhatsApp',
+    askHeader: "⚽ Who's coming? {when}",
+    askSoFar: { one: '1 signed up so far', other: '{count} signed up so far' },
+    askQuick: 'Tap your name: {link}',
+    askApp: 'Sign up in the app: {link}',
     today: 'Today',
     thisWeek: 'This week',
     // "No game on Saturday 11/7"

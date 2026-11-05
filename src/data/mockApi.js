@@ -7,7 +7,7 @@ import { GAME, pickSettings } from '../lib/dates'
 import { getMyCode, setMyCode } from '../lib/identity'
 import { fromPositions, positionsOf } from '../lib/positions'
 import { compareNames, language, t } from '../i18n'
-import { cleanOptions, matchRules, validOptions } from '../lib/options'
+import { matchRules, optionsOf, optionsPatch, validOptions } from '../lib/options'
 
 const KEY = 'football-demo-v3'
 
@@ -147,9 +147,24 @@ const ratingsOf = (groupId) => {
   return computeRatings(players, state.ballots.filter((b) => ids.has(b.voter_id)))
 }
 
+// Same as private.player_scores: by the group's rating mode (peers' ballots, admin stars, or none).
 const ratingOf = (groupId) => {
+  const mode = optionsOf(state.groups.find((g) => g.id === groupId)).rating
+  if (mode === 'none') return () => 50
+  if (mode === 'admin') return (id) => (state.stars?.[id] ? (state.stars[id] - 1) * 25 : 50)
   const map = new Map(ratingsOf(groupId).map((r) => [r.player_id, r.score ?? 50]))
   return (id) => map.get(id) ?? 50
+}
+
+// Like private.quick_group: the group of this join code if it allows one-tap sign-up, for its game day.
+function quickGroup(joinCode, day) {
+  const g = groupByJoin(joinCode)
+  if (!g || !optionsOf(g).quick_signup) return null
+  const [y, m, d] = day.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const days = (date - new Date(new Date().toDateString())) / 86400_000
+  if (date.getDay() !== settingsOf(g).weekday || days < -1 || days > 8) throw new Error('invalid day')
+  return g
 }
 
 const presentIds = (nightId) =>
@@ -192,9 +207,56 @@ export function createMockApi() {
       state.groups.find((g) => g.id === myGroupId()).name = name.trim()
       save()
     },
-    async saveOptions(options) {
+    // Like set_options: changes only the options given (null / default = removed), keeps the rest.
+    async saveOptions(fields) {
       requireAdmin()
-      state.groups.find((g) => g.id === myGroupId()).options = cleanOptions(options)
+      const g = state.groups.find((x) => x.id === myGroupId())
+      const next = { ...(g.options ?? {}) }
+      for (const [k, v] of Object.entries(optionsPatch(fields))) {
+        if (v === null) delete next[k]
+        else next[k] = v
+      }
+      if (!validOptions(next)) throw new Error('invalid options')
+      g.options = next
+      save()
+      return copy(next)
+    },
+    async adminStars() {
+      requireAdmin()
+      return groupPlayers(myGroupId()).filter((p) => p.active).map((p) => ({ player_id: p.id, stars: state.stars?.[p.id] ?? null }))
+    },
+    async setStars(playerId, stars) {
+      requireAdmin()
+      if (!inMyGroup(state.players.find((p) => p.id === playerId))) throw new Error('not allowed')
+      state.stars ??= {}
+      if (stars == null) delete state.stars[playerId]
+      else if (stars >= 1 && stars <= 5) state.stars[playerId] = stars
+      else throw new Error('invalid stars')
+      save()
+    },
+    async quickRoster(joinCode, day) {
+      const g = quickGroup(joinCode, day)
+      if (!g) return null
+      const night = state.nights.find((n) => n.group_id === g.id && n.day === day)
+      const players = groupPlayers(g.id).filter((p) => p.active).sort((a, b) => compareNames(a.name, b.name))
+      return copy({
+        id: g.id, name: g.name, ...settingsOf(g), options: g.options ?? {}, cancelled: Boolean(night?.cancelled),
+        players: players.map(({ id, name, emoji }) => ({ id, name, emoji })),
+        coming: night ? presentIds(night.id) : [],
+      })
+    },
+    async quickSignup(joinCode, playerId, day, coming) {
+      const g = quickGroup(joinCode, day)
+      if (!g || !groupPlayers(g.id).some((p) => p.id === playerId && p.active)) throw new Error('not allowed')
+      let night = state.nights.find((n) => n.group_id === g.id && n.day === day)
+      if (!night) {
+        night = { id: newId(), group_id: g.id, day, cancelled: false, created_at: now() }
+        state.nights.push(night)
+      }
+      if (night.cancelled) throw new Error('no game')
+      const has = state.attendance.some((a) => a.night_id === night.id && a.player_id === playerId)
+      if (coming && !has) state.attendance.push({ night_id: night.id, player_id: playerId, group_id: g.id, arrived_at: now() })
+      if (!coming) state.attendance = state.attendance.filter((a) => !(a.night_id === night.id && a.player_id === playerId))
       save()
     },
     async createGroup(groupName, f, settings = null) {

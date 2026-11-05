@@ -2,8 +2,65 @@ import { useEffect, useState } from 'react'
 import { api } from '../../data'
 import Avatar from '../../components/Avatar'
 import { compareNames, listOf, t, tx } from '../../i18n'
+import { useOptions } from '../../lib/schedule'
 
+// What the admin sees here depends on how the group rates: the players' ballots, the admins' own
+// stars, or nothing (teams by positions only).
 export default function RankingTab({ players }) {
+  const { rating } = useOptions()
+  if (rating === 'admin') return <StarRatings players={players} />
+  if (rating === 'none') return <p className="note">{t('admin.stars.none')}</p>
+  return <PeerRanking players={players} />
+}
+
+// 1–5 stars per active player, saved on every tap. Only admins see them.
+function StarRatings({ players }) {
+  const [stars, setStars] = useState(null)
+  const [error, setError] = useState(false)
+  useEffect(() => {
+    api.adminStars().then((rows) => setStars(Object.fromEntries(rows.map((r) => [r.player_id, r.stars]))), () => setError(true))
+  }, [players])
+
+  if (error) return <p className="err">{t('stats.ranking.loadFailed')}</p>
+  if (!stars) return <p className="center">{t('common.loading')}</p>
+
+  const active = players.filter((p) => p.active).sort((a, b) => compareNames(a.name, b.name))
+  const set = async (id, value) => {
+    const before = stars[id] ?? null
+    setStars({ ...stars, [id]: value })
+    try {
+      await api.setStars(id, value)
+    } catch {
+      setStars((s) => ({ ...s, [id]: before }))
+    }
+  }
+
+  return (
+    <section className="stack">
+      <div className="card stack">
+        <strong>{t('admin.stars.title')}</strong>
+        <p className="muted small">{t('admin.stars.hint')}</p>
+        <span className="muted small">{t('admin.stars.rated', { n: active.filter((p) => stars[p.id]).length, total: active.length })}</span>
+      </div>
+      <ul className="player-list">
+        {active.map((p) => (
+          <li key={p.id} className="card star-row">
+            <Avatar player={p} size={34} />
+            <span className="rank-name">{p.name}</span>
+            <span className="stars" role="radiogroup" aria-label={p.name}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button type="button" key={n} role="radio" aria-checked={stars[p.id] === n} aria-label={t('admin.stars.star', { count: n })}
+                  className={(stars[p.id] ?? 0) >= n ? 'on' : ''} onClick={() => set(p.id, stars[p.id] === n ? null : n)}>★</button>
+              ))}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function PeerRanking({ players }) {
   const [rows, setRows] = useState()
   const [status, setStatus] = useState([])
   const [error, setError] = useState(false)

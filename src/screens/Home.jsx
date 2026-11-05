@@ -16,9 +16,11 @@ import InviteCard from '../components/InviteCard'
 import GroupSwitcher from '../components/GroupSwitcher'
 import { unplaced } from '../lib/placement'
 import { t, tl } from '../i18n'
+import { useOptions } from '../lib/schedule'
 
 export default function Home() {
   const ready = useSchemaReady()
+  const opts = useOptions() // which features this group uses
   const code = getMyCode()
   const day = today()
 
@@ -104,7 +106,7 @@ export default function Home() {
         </a>
       )}
 
-      {view?.toVote && (
+      {view?.toVote && opts.mvp && (
         <a className="card cta-card mvp-cta" href={`#/match/${view.toVote.id}`}>
           <div>
             <strong>{t('home.mvpAsk', { num: view.toVote.num })}</strong>
@@ -124,7 +126,7 @@ export default function Home() {
         </a>
       )}
 
-      {me && ready && !me.ranking && view?.roster?.length > 2 && (
+      {me && ready && opts.rating === 'peers' && !me.ranking && view?.roster?.length > 2 && (
         <a className="card cta-card rank-cta" href={`#/v/${code}`}>
           <div>
             <strong>{t('home.rankTitle')}</strong>
@@ -153,11 +155,13 @@ export default function Home() {
           <strong>{t('home.stats')}</strong>
           <span>{t('home.statsText')}</span>
         </a>
-        <a className="tile" href={code ? `#/v/${code}` : '#/vote'}>
-          <span className="tile-emoji">🗳️</span>
-          <strong>{t('home.ranking')}</strong>
-          <span>{me?.ranking ? t('home.rankingUpdate') : t('home.rankingSecret')}</span>
-        </a>
+        {opts.rating === 'peers' && (
+          <a className="tile" href={code ? `#/v/${code}` : '#/vote'}>
+            <span className="tile-emoji">🗳️</span>
+            <strong>{t('home.ranking')}</strong>
+            <span>{me?.ranking ? t('home.rankingUpdate') : t('home.rankingSecret')}</span>
+          </a>
+        )}
       </div>
 
       {view?.last && (

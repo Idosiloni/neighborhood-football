@@ -16,6 +16,32 @@ export const OPTIONS = {
   tie: { values: ['extra', 'penalties', 'draw'], default: 'extra' }, // a tie when time runs out
   team_a: { values: TEAM_COLORS, default: 'blue' }, // bib colors
   team_b: { values: TEAM_COLORS, default: 'orange' },
+  // How much the players do (see LEVELS): how teams are rated, MVP votes, recording assists,
+  // and signing up from the group's link with one tap (no personal link needed).
+  rating: { values: ['peers', 'admin', 'none'], default: 'peers' },
+  mvp: { values: [true, false], default: true },
+  assists: { values: [true, false], default: true },
+  quick_signup: { values: [true, false], default: false },
+}
+
+// Ready-made sets of the switches above. "standard" is what every group had before.
+// The level isn't stored: it is worked out from the switches (anything else = custom).
+export const LEVELS = {
+  simple: { rating: 'admin', mvp: false, assists: false, quick_signup: true },
+  standard: { rating: 'peers', mvp: true, assists: true, quick_signup: false },
+}
+export const LEVEL_KEYS = Object.keys(LEVELS.standard)
+
+export function levelOf(options) {
+  const o = optionsOf({ options })
+  return Object.keys(LEVELS).find((l) => LEVEL_KEYS.every((k) => o[k] === LEVELS[l][k])) ?? 'custom'
+}
+
+// A change to send to the database: defaults become null (= remove the key), the rest as is.
+export function optionsPatch(fields) {
+  return Object.fromEntries(
+    Object.entries(fields ?? {}).filter(([k]) => OPTIONS[k]).map(([k, v]) => [k, v === OPTIONS[k].default || v == null ? null : v]),
+  )
 }
 
 // The options frozen on each match when it starts (with match_minutes and win_goals).

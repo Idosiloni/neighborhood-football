@@ -125,4 +125,34 @@ export default {
     tieDrawGame: 'A tie stays a tie.',
     minPart: 'Teams can be picked once at least {min} players are here; the rest wait on the sideline.',
   },
+  // How much the players do: a ready-made level, or each switch on its own.
+  level: {
+    title: 'How much should players do in the app?',
+    levels: { simple: 'Simple', standard: 'Standard', custom: 'Custom' },
+    hints: {
+      simple: "Players don't have to do anything: they sign up by tapping their name on the group's link, and the admins rate players and run the game.",
+      standard: 'Everyone gets in with their personal link, ranks their friends and votes for MVP.',
+      custom: 'Your own mix, set below.',
+    },
+    rating: 'How are players rated for picking teams?',
+    ratings: { peers: 'Players rank each other', admin: 'Admins, with stars', none: 'No ratings' },
+    ratingHints: {
+      peers: 'Everyone puts everyone in order, in secret.',
+      admin: 'Only admins rate, 1–5 stars, in the Ranking tab.',
+      none: 'Teams are split by positions only.',
+    },
+    mvp: 'MVP vote after every game',
+    assists: 'Record assists too',
+    quick: "Sign up by tapping your name on the group's link",
+    quickHint: 'No personal link and no joining. Anyone with the link can tick names, so it suits a group of friends.',
+  },
+  // The admins' own 1–5 star rating (groups that rate this way).
+  stars: {
+    title: 'Admin ratings',
+    hint: "How good each player is, compared with your group. Only admins see this, and it's only used to pick teams.",
+    none: 'This group has no ratings: teams are split by positions only. You can change it in the Group tab.',
+    star: { one: '1 star', other: '{count} stars' },
+    clear: 'No rating',
+    rated: '{n} of {total} rated',
+  },
 }

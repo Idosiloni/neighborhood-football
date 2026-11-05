@@ -1,5 +1,6 @@
 // British English words that differ from American, as full keys: { 'ns.key': 'text' }.
 export default {
+  'admin.level.mvp': 'MVP vote after every match',
   'admin.players.nickname': '‘{nickname}’',
   'admin.form.confirmDelete': 'Delete {name} for good? The ranking sent from their link will be deleted too. If they just stopped coming, better to untick "Active".',
   'admin.game.cancelled': 'Cancelled. Players see "No game this week".',

@@ -215,4 +215,16 @@ export default {
     join: '📨 Join another group',
     create: '🆕 Start a new group',
   },
+  // One-tap sign-up from the group's link (no personal link).
+  quick: {
+    title: "Who's coming?",
+    sub: '{group} · {when}',
+    tap: 'Tap your name',
+    youreIn: "You're on the list ✓",
+    tapAgain: 'Tap to cancel',
+    cancelled: 'No game this week 😴',
+    off: 'This group signs up in the app, with a personal link.',
+    joinInstead: 'Join the group',
+    notListed: 'Not on the list? Join the group',
+  },
 }

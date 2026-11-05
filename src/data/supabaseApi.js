@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { currentGroup, getMyCode } from '../lib/identity'
 import { GAME, pickSettings } from '../lib/dates'
-import { cleanOptions } from '../lib/options'
+import { optionsPatch } from '../lib/options'
 
 // '*' so newer columns show up once the schema update has been run.
 // Everything but the photo itself (see lib/photos.js): photo_v says which photo he has.
@@ -52,9 +52,24 @@ export function createSupabaseApi(url, key) {
     async saveGroup({ name }) {
       check(await db.from('groups').update({ name: name.trim() }).eq('id', currentGroup()?.id))
     },
-    // The whole options object (src/lib/options.js), admins only. Needs schema version 4.
-    async saveOptions(options) {
-      check(await db.from('groups').update({ options: cleanOptions(options) }).eq('id', currentGroup()?.id))
+    // Changes only the options given (defaults are removed) and keeps all others, also ones this
+    // version doesn't know. Admins only. Needs schema version 6.
+    async saveOptions(fields) {
+      return check(await db.rpc('set_options', { p_patch: optionsPatch(fields) }))
+    },
+    // The admins' 1–5 stars per player (groups that rate this way). Admins only.
+    async adminStars() {
+      return check(await db.rpc('admin_stars'))
+    },
+    async setStars(playerId, stars) {
+      check(await db.rpc('set_stars', { p_player: playerId, p_stars: stars }))
+    },
+    // One-tap sign-up from the group's link (groups that allow it): no personal code needed.
+    async quickRoster(joinCode, day) {
+      return check(await db.rpc('quick_roster', { p_join: joinCode, p_day: day }))
+    },
+    async quickSignup(joinCode, playerId, day, coming) {
+      check(await db.rpc('quick_signup', { p_join: joinCode, p_player: playerId, p_day: day, p_coming: coming }))
     },
     // settings: weekday, kickoff, team_size, match_minutes, win_goals, venue, options (any can be left out).
     async createGroup(groupName, f, settings = null) {
@@ -198,8 +213,13 @@ export function createSupabaseApi(url, key) {
 
     // Calls onChange whenever anything in the open group changes on any phone. The database
     // sends only a "something changed" ping; the screens then reload what they may read.
-    subscribe(onChange) {
-      const groupId = currentGroup()?.id
+    // groupId: another group than the open one (the one-tap sign-up page, which has no code).
+    subscribe(onChange, groupId = null) {
+      if (groupId && groupId !== currentGroup()?.id) {
+        const own = db.channel(`g:${groupId}`).on('broadcast', { event: 'change' }, () => onChange()).subscribe()
+        return () => db.removeChannel(own)
+      }
+      groupId = currentGroup()?.id
       if (!groupId) return () => {}
       listeners.add(onChange)
       channel ??= db

@@ -2,7 +2,7 @@ import { dayNames } from '../lib/dates'
 import { minPlayers } from '../lib/teams'
 import { sport } from '../sports'
 import { t } from '../i18n'
-import { optionsOf, TEAM_COLORS } from '../lib/options'
+import { LEVELS, levelOf, optionsOf, TEAM_COLORS } from '../lib/options'
 import { PALETTE } from '../lib/teamColors'
 
 // The group's settings, as form fields. value: { weekday, kickoff, venue, team_size, match_minutes, win_goals, options }.
@@ -176,4 +176,40 @@ export function rulesSummary(value) {
     tie,
     min: t('admin.rules.minPart', { min: minPlayers(team_size) }),
   })
+}
+
+// How much the players do: a ready-made level (simple / standard), and each switch on its own.
+// value: the group's options (all of optionsOf()); onChange(fields): the changed ones.
+export function LevelFields({ value, onChange, disabled = false }) {
+  const level = levelOf(value)
+  const toggle = (key, label, hint) => (
+    <label className="check">
+      <input type="checkbox" checked={value[key]} disabled={disabled} onChange={(e) => onChange({ [key]: e.target.checked })} />
+      <span>
+        {label}
+        {hint && <small className="muted">{hint}</small>}
+      </span>
+    </label>
+  )
+  return (
+    <>
+      <div className="field">
+        {t('admin.level.title')}
+        <div className="chips">
+          {Object.keys(LEVELS).map((l) => (
+            <button type="button" key={l} className={level === l ? 'on' : ''} aria-pressed={level === l} disabled={disabled}
+              onClick={() => onChange(LEVELS[l])}>{t(`admin.level.levels.${l}`)}</button>
+          ))}
+          {level === 'custom' && <button type="button" className="on" aria-pressed disabled>{t('admin.level.levels.custom')}</button>}
+        </div>
+        <small className="muted">{t(`admin.level.hints.${level}`)}</small>
+      </div>
+      <Choice label={t('admin.level.rating')} options={['peers', 'admin', 'none']} value={value.rating}
+        onChange={(r) => !disabled && onChange({ rating: r })} text={(r) => t(`admin.level.ratings.${r}`)} />
+      <small className="muted">{t(`admin.level.ratingHints.${value.rating}`)}</small>
+      {toggle('mvp', t('admin.level.mvp'))}
+      {toggle('assists', t('admin.level.assists'))}
+      {toggle('quick_signup', t('admin.level.quick'), t('admin.level.quickHint'))}
+    </>
+  )
 }

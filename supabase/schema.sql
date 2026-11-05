@@ -1,4 +1,4 @@
--- Neighborhood football, schema version 5: many groups in one database, each with its own options and rules.
+-- Neighborhood football, schema version 6: many groups in one database, each with its own options and rules.
 -- Each group has its own players, game nights, matches, ratings and join link.
 -- The player who opens a group is its admin (and may make other players admins too).
 --
@@ -49,6 +49,15 @@ create table if not exists public.player_codes (
 create table if not exists public.ballots (
   voter_id uuid primary key references public.players on delete cascade,
   ranking uuid[] not null,
+  updated_at timestamptz not null default now()
+);
+
+-- Version 6: the admins' own rating of each player, 1–5 stars, for groups that rate this way
+-- (options.rating = 'admin'). Private like the ballots: only through admin functions.
+create table if not exists public.coach_ratings (
+  player_id uuid primary key references public.players on delete cascade,
+  group_id uuid not null references public.groups on delete cascade,
+  stars int not null check (stars between 1 and 5),
   updated_at timestamptz not null default now()
 );
 
@@ -208,6 +217,14 @@ as $$
                        and (o->>k)::numeric between lo and hi);
 $$;
 
+-- A true/false option (or not set).
+create or replace function private.option_bool(o jsonb, k text)
+returns boolean
+language sql immutable set search_path = ''
+as $$
+  select not o ? k or jsonb_typeof(o->k) = 'boolean';
+$$;
+
 -- A group's options: an object with known keys only, each with an allowed value. Same rules as
 -- src/lib/options.js. A new option = a new line here and there (old groups simply don't have it).
 create or replace function private.options_valid(o jsonb)
@@ -216,7 +233,10 @@ language sql immutable set search_path = ''
 as $$
   select jsonb_typeof(o) = 'object'
     and not exists (select 1 from jsonb_object_keys(o) k where k not in (
-      'lang', 'format', 'periods', 'break_minutes', 'extra_minutes', 'tie', 'team_a', 'team_b'))
+      'lang', 'format', 'periods', 'break_minutes', 'extra_minutes', 'tie', 'team_a', 'team_b',
+      'rating', 'mvp', 'assists', 'quick_signup'))
+    and (not o ? 'rating' or o->>'rating' in ('peers', 'admin', 'none'))
+    and private.option_bool(o, 'mvp') and private.option_bool(o, 'assists') and private.option_bool(o, 'quick_signup')
     and (not o ? 'lang' or o->>'lang' in ('he', 'en'))
     and (not o ? 'format' or o->>'format' in ('rounds', 'game'))
     and (not o ? 'tie' or o->>'tie' in ('extra', 'penalties', 'draw'))
@@ -396,7 +416,7 @@ $$;
 create or replace function public.schema_version()
 returns int
 language sql immutable security definer set search_path = ''
-as $$ select 5 $$;
+as $$ select 6 $$;
 
 -- New rows land in the caller's group unless the server sets it.
 alter table public.players alter column group_id set default public.my_group();
@@ -673,11 +693,12 @@ alter table public.attendance enable row level security;
 alter table public.matches enable row level security;
 alter table public.goals enable row level security;
 alter table public.mvp_votes enable row level security;
+alter table public.coach_ratings enable row level security;
 
 revoke all on public.groups, public.players, public.admins, public.player_codes, public.ballots,
-  public.nights, public.attendance, public.matches, public.goals, public.mvp_votes
+  public.nights, public.attendance, public.matches, public.goals, public.mvp_votes, public.coach_ratings
   from public, anon, authenticated;
--- admins, ballots and mvp_votes: no policies and no grants. Only the functions below touch them.
+-- admins, ballots, mvp_votes and coach_ratings: no policies and no grants. Only the functions below touch them.
 
 -- Group: members read it (name, join code, game day); admins rename it and set the day.
 create policy "members read their group" on public.groups
@@ -1033,7 +1054,13 @@ create or replace function private.player_scores(p_group uuid)
 returns table (player_id uuid, score numeric)
 language sql stable set search_path = ''
 as $$
-  with placed as (
+  -- How the group rates (options.rating): 'peers' = everyone's ballots (the default), 'admin' = the
+  -- admins' stars (1–5 → 0–100), 'none' = everyone the same (teams by luck and positions only).
+  -- Ballots and stars are both kept, so switching back brings the old ratings back.
+  with mode as (
+    select coalesce(g.options->>'rating', 'peers') as m from public.groups g where g.id = p_group
+  ),
+  placed as (
     select r.id,
            row_number() over (partition by b.voter_id order by r.ord) as pos,
            count(*) over (partition by b.voter_id) as n
@@ -1043,13 +1070,19 @@ as $$
     join public.players p on p.id = r.id and p.active and p.group_id = p_group
     where r.id <> b.voter_id
       and private.ballot_counts(b)
+      and (select m from mode) = 'peers'
   ),
   scored as (
     select placed.id,
            case when placed.n = 1 then 0.5 else 1 - (placed.pos - 1)::numeric / (placed.n - 1) end as s
     from placed
   )
-  select p.id, coalesce(avg(sc.s) * 100, 50)
+  select p.id,
+         case (select m from mode)
+           when 'admin' then coalesce((select (cr.stars - 1) * 25.0 from public.coach_ratings cr where cr.player_id = p.id), 50)
+           when 'none' then 50
+           else coalesce(avg(sc.s) * 100, 50)
+         end
   from public.players p
   left join scored sc on sc.id = p.id
   where p.active and p.group_id = p_group
@@ -1534,6 +1567,138 @@ as $$
   where c.code = lower(trim(p_code));
 $$;
 
+-- ───────────── Group options, admin stars, one-tap sign-up (version 6) ─────────────
+
+-- Changes only the options it is given (null = back to the default) and keeps every other key,
+-- also ones this version of the app doesn't know. Admins only. Returns the group's options.
+create or replace function public.set_options(p_patch jsonb)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_out jsonb;
+begin
+  if not public.is_admin() then
+    raise exception 'not allowed';
+  end if;
+  if jsonb_typeof(p_patch) is distinct from 'object' then
+    raise exception 'invalid options';
+  end if;
+  update public.groups set options = jsonb_strip_nulls(options || p_patch)
+  where id = public.my_group()
+  returning options into v_out;
+  return v_out;
+end $$;
+
+-- The admins' stars for every active player of their group (null = not rated yet).
+create or replace function public.admin_stars()
+returns table (player_id uuid, stars int)
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'not allowed';
+  end if;
+  return query
+  select p.id, cr.stars
+  from public.players p
+  left join public.coach_ratings cr on cr.player_id = p.id
+  where p.group_id = public.my_group() and p.active;
+end $$;
+
+-- An admin rates a player of the group, 1–5 stars (null = remove the rating).
+create or replace function public.set_stars(p_player uuid, p_stars int)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_group uuid := public.my_group();
+begin
+  if not public.is_admin() or not exists (select 1 from public.players p where p.id = p_player and p.group_id = v_group) then
+    raise exception 'not allowed';
+  end if;
+  if p_stars is null then
+    delete from public.coach_ratings where player_id = p_player;
+  elsif p_stars between 1 and 5 then
+    insert into public.coach_ratings (player_id, group_id, stars) values (p_player, v_group, p_stars)
+    on conflict (player_id) do update set stars = excluded.stars, updated_at = now();
+  else
+    raise exception 'invalid stars';
+  end if;
+end $$;
+
+-- One-tap sign-up from the group's link, for groups that allow it (options.quick_signup):
+-- no personal link needed, tap your name. The day must be the group's game day, from yesterday
+-- to 8 days ahead. Returns the group, the list of active players (no codes, no photos) and who
+-- is coming, in order. Null for a wrong join code or a group that doesn't allow it.
+create or replace function private.quick_group(p_join text, p_day date)
+returns public.groups
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  g public.groups;
+begin
+  select * into g from public.groups x where x.join_code = lower(trim(p_join));
+  if not found or coalesce((g.options->>'quick_signup')::boolean, false) is not true then
+    return null;
+  end if;
+  if p_day is null or extract(dow from p_day) <> g.weekday or p_day < current_date - 1 or p_day > current_date + 8 then
+    raise exception 'invalid day';
+  end if;
+  return g;
+end $$;
+
+create or replace function public.quick_roster(p_join text, p_day date)
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  g public.groups := private.quick_group(p_join, p_day);
+  v_night public.nights;
+begin
+  if g.id is null then
+    return null;
+  end if;
+  select * into v_night from public.nights n where n.group_id = g.id and n.day = p_day;
+  return jsonb_build_object(
+    'id', g.id, 'name', g.name, 'weekday', g.weekday, 'kickoff', g.kickoff, 'team_size', g.team_size,
+    'options', g.options,
+    'cancelled', coalesce(v_night.cancelled, false),
+    'players', coalesce((
+      select jsonb_agg(jsonb_build_object('id', p.id, 'name', p.name, 'emoji', p.emoji) order by p.name)
+      from public.players p where p.group_id = g.id and p.active), '[]'::jsonb),
+    'coming', coalesce((
+      select jsonb_agg(a.player_id order by a.arrived_at, a.player_id)
+      from public.attendance a join public.players p on p.id = a.player_id and p.active
+      where a.night_id = v_night.id), '[]'::jsonb));
+end $$;
+
+create or replace function public.quick_signup(p_join text, p_player uuid, p_day date, p_coming boolean)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  g public.groups := private.quick_group(p_join, p_day);
+  v_night uuid;
+begin
+  if g.id is null then
+    raise exception 'not allowed';
+  end if;
+  if not exists (select 1 from public.players p where p.id = p_player and p.group_id = g.id and p.active) then
+    raise exception 'not allowed';
+  end if;
+  insert into public.nights (group_id, day) values (g.id, p_day) on conflict (group_id, day) do nothing;
+  select n.id into v_night from public.nights n where n.group_id = g.id and n.day = p_day and not n.cancelled;
+  if v_night is null then
+    raise exception 'no game';
+  end if;
+  if p_coming then
+    insert into public.attendance (night_id, player_id) values (v_night, p_player) on conflict do nothing;
+  else
+    delete from public.attendance where night_id = v_night and player_id = p_player;
+  end if;
+end $$;
+
 -- ───────────── Who may call what ─────────────
 
 do $$
@@ -1549,7 +1714,9 @@ begin
     'public.voter_by_code(text)', 'public.submit_ballot(text, uuid[])',
     'public.update_my_profile(text, text, text, text, boolean, text, text[], boolean)', 'public.admin_ratings()',
     'public.make_teams(uuid, uuid[])', 'public.suggest_rotation(uuid)', 'public.admin_ballot_status()', 'public.leave_group(text)',
-    'public.vote_mvp(text, uuid, uuid)', 'public.mvp_tally()', 'public.my_mvp_votes(text)'
+    'public.vote_mvp(text, uuid, uuid)', 'public.mvp_tally()', 'public.my_mvp_votes(text)',
+    'public.set_options(jsonb)', 'public.admin_stars()', 'public.set_stars(uuid, int)',
+    'public.quick_roster(text, date)', 'public.quick_signup(text, uuid, date, boolean)'
   ] loop
     execute format('revoke execute on function %s from public', f);
     execute format('grant execute on function %s to anon, authenticated', f);

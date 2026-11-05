@@ -3,12 +3,12 @@ import { api } from '../data'
 import { GAME } from '../lib/dates'
 import { dayName, formatKickoff, language, t, tl } from '../i18n'
 import { openGroup, setMyCode } from '../lib/identity'
-import { cleanOptions } from '../lib/options'
+import { cleanOptions, optionsOf } from '../lib/options'
 import PageHeader from '../components/PageHeader'
 import ProfileForm from '../components/ProfileForm'
 import InviteCard from '../components/InviteCard'
 import MyLink from '../components/MyLink'
-import { RulesFields, rulesSummary, WhenFields } from '../components/GameSettings'
+import { LevelFields, RulesFields, rulesSummary, WhenFields } from '../components/GameSettings'
 
 // The server's error keys and their texts (onboarding.create.errors.*).
 const ERRORS = {
@@ -71,6 +71,7 @@ export default function CreateGroup() {
       {step === 2 && (
         <form className="stack" onSubmit={next}>
           <h2 className="section-title">{t('onboarding.create.rulesTitle')}</h2>
+          <LevelFields value={optionsOf(settings)} onChange={(fields) => setSettings({ ...settings, options: { ...optionsOf(settings), ...fields } })} />
           <RulesFields value={settings} onChange={setSettings} />
           <StepButtons onBack={() => setStep(1)} />
         </form>

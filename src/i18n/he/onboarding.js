@@ -215,4 +215,16 @@ export default {
     join: '📨 הצטרפות לקבוצה נוספת',
     create: '🆕 פתיחת קבוצה חדשה',
   },
+  // One-tap sign-up from the group's link (no personal link).
+  quick: {
+    title: 'מי בא?',
+    sub: '{group} · {when}',
+    tap: 'לחצו על השם שלכם',
+    youreIn: 'אתם ברשימה ✓',
+    tapAgain: 'לחיצה מבטלת',
+    cancelled: 'אין משחק השבוע 😴',
+    off: 'בקבוצה הזאת נרשמים דרך האפליקציה, עם קישור אישי.',
+    joinInstead: 'הצטרפות לקבוצה',
+    notListed: 'השם לא ברשימה? הצטרפות לקבוצה',
+  },
 }
