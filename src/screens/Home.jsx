@@ -116,7 +116,7 @@ export default function Home() {
         </a>
       )}
 
-      {view?.newOnes?.length > 0 && (
+      {view?.newOnes?.length > 0 && opts.rating === 'peers' && (
         <a className="card cta-card" href="#/place">
           <div>
             <strong>{t('home.newPlayers', { count: view.newOnes.length, name: view.newOnes[0].name })}</strong>

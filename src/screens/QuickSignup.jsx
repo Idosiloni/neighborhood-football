@@ -5,6 +5,7 @@ import { gameLabel, nextGameDay } from '../lib/dates'
 import { play } from '../lib/sound'
 import { setGroupLanguage, t } from '../i18n'
 import { applyTeamColors } from '../lib/teamColors'
+import { myGroups } from '../lib/identity'
 import PageHeader from '../components/PageHeader'
 import Avatar from '../components/Avatar'
 
@@ -45,8 +46,12 @@ export default function QuickSignup({ joinCode = '' }) {
   useEffect(() => {
     if (!groupId) return
     setMine(readMine(groupId))
-    applyTeamColors(data.roster.options)
-    if (data.roster.options?.lang) setGroupLanguage(data.roster.options.lang)
+    // The group's colors and language, unless this phone is in another group (they'd stick there).
+    const groups = myGroups()
+    if (groups.length === 0 || groups.some((g) => g.id === groupId)) {
+      applyTeamColors(data.roster.options)
+      if (data.roster.options?.lang) setGroupLanguage(data.roster.options.lang)
+    }
     // Live: someone else taps in, the list here updates too.
     return api.subscribe(() => reload(), groupId)
   }, [groupId])

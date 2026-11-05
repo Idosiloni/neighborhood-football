@@ -217,7 +217,7 @@ export default {
   },
   // One-tap sign-up from the group's link (no personal link).
   quick: {
-    title: 'מי בא?',
+    title: 'מי בפנים?',
     sub: '{group} · {when}',
     tap: 'לחצו על השם שלכם',
     youreIn: 'אתם ברשימה ✓',

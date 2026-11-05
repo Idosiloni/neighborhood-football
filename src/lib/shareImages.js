@@ -22,9 +22,10 @@ function text(ctx, str, x, y, { size, weight = 700, color = '#ffffff', align = '
 }
 
 function round(ctx, x, y, w, h, r, fill) {
+  ctx.fillStyle = fill
+  if (!ctx.roundRect) return ctx.fillRect(x, y, w, h) // older phones (iOS before 16): square corners
   ctx.beginPath()
   ctx.roundRect(x, y, w, h, r)
-  ctx.fillStyle = fill
   ctx.fill()
 }
 

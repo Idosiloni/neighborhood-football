@@ -38,8 +38,8 @@ export default {
   manage: 'ניהול הקבוצה',
 
   signup: {
-    ask: 'שליחת "מי בא?" בוואטסאפ',
-    askHeader: '⚽ מי בא? {when}',
+    ask: 'שליחת "מי בפנים?" בוואטסאפ',
+    askHeader: '⚽ מי בפנים? {when}',
     askSoFar: { one: 'כבר אחד ברשימה', two: 'כבר שניים ברשימה', other: 'כבר {count} ברשימה' },
     askQuick: 'לחצו על השם שלכם: {link}',
     askApp: 'נרשמים באפליקציה: {link}',
