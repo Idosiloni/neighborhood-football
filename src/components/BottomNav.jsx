@@ -8,7 +8,7 @@ const ITEMS = [
   { href: '#/stats', page: 'stats', icon: 'chart', name: 'stats' },
   { href: '#/me', page: 'me', icon: 'user', name: 'me' },
 ]
-const SECTION = { match: 'tonight', next: 'tonight', card: 'stats', vote: 'me', v: 'me' }
+const SECTION = { match: 'tonight', next: 'tonight', card: 'stats', week: 'stats', vote: 'me', v: 'me' }
 
 export default function BottomNav({ page = '' }) {
   const current = SECTION[page] ?? page

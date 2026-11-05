@@ -87,3 +87,14 @@ export const ratersRange = (n) => (n < MIN_RATERS ? null : n <= 5 ? '3–5' : n 
 export function cardValues(rows, playerId) {
   return Object.fromEntries(rows.filter((r) => r.player_id === playerId && r.raters >= MIN_RATERS).map((r) => [r.attr, toDisplay(Number(r.value))]))
 }
+
+// The full card of one player from the published rows (null rows = the group doesn't rate by categories):
+// { values, keys (the goalkeeping ones for keepers only), overall (null until every category is in), raters }.
+export function fullCard(rows, player, positions) {
+  if (!rows) return null
+  const values = cardValues(rows, player.id)
+  const keeperOnly = positions.length === 1 && positions[0] === 'gk'
+  const best = overallOf(values, positions.length ? positions : ['any'])
+  const raters = Math.max(0, ...rows.filter((r) => r.player_id === player.id).map((r) => r.raters))
+  return { values, keys: keeperOnly ? GK_ATTRS : FIELD_ATTRS, overall: best?.value ?? null, raters }
+}

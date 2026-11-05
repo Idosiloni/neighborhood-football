@@ -20,12 +20,14 @@ export default {
   // The six numbers on the card.
   attrs: {
     games: 'Games',
-    winRate: 'Wins',
+    winRate: 'Win %',
     mvp: 'MVP',
     goals: 'Goals',
     assists: 'Assists',
     conceded: 'Conceded/game',
     bestStreak: 'Best streak',
+    attendance: 'Attendance',
+    wins: 'Wins',
   },
 
   awards: {
@@ -188,5 +190,43 @@ export default {
   fullCard: {
     basedOn: 'Based on {range} ratings · updated once a week',
     missing: 'Not enough ratings for every category yet. Until then, the card rating comes from games.',
+  },
+
+  // The card's color, and how far the next one is.
+  tiers: {
+    new: 'New',
+    bronze: 'Bronze',
+    silver: 'Silver',
+    gold: 'Gold',
+    toNext: { one: '1 point to {tier}', other: '{count} points to {tier}' },
+    top: 'As high as it gets ✨',
+  },
+
+  // A card that went up a color.
+  reveal: {
+    label: 'Card upgraded',
+    mine: 'Your card is now {tier}!',
+    other: "{name}'s card is now {tier}!",
+    tap: 'Tap to close',
+    homeTitle: 'Your card went up to {tier} ✨',
+    homeText: 'Tap to reveal',
+  },
+
+  // Team of the Week: the best of the last game day.
+  week: {
+    title: 'Team of the Week',
+    badge: '⭐ Team of the Week',
+    sub: 'The best of {day}',
+    star: 'Player of the Week',
+    points: 'Win 3 · Draw 1 · Goal 2',
+    pointsAssists: ' · Assist 1',
+    pointsMvp: ' · MVP 2',
+    wins: { one: '1 win', other: '{count} wins' },
+    pts: { one: '1 point', other: '{count} points' },
+    youAreIn: "You're in the Team of the Week! ⭐",
+    youAreInText: 'Your card wears its colors until the next game day',
+    share: '📤 Share the team',
+    shareText: 'Team of the Week ⚽',
+    empty: "After a game day, its best players show up here.",
   },
 }

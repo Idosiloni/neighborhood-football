@@ -9,6 +9,9 @@ import Avatar from '../components/Avatar'
 import NeedsUpdate from '../components/NeedsUpdate'
 import FormDots from '../components/FormDots'
 import Loading from '../components/Loading'
+import { teamOfTheWeek } from '../lib/week'
+import { useOptions, useSchedule } from '../lib/schedule'
+import { dayLabel } from '../lib/dates'
 
 // Labels come from stats.boards.<key>, read when shown.
 const BOARDS = [
@@ -41,6 +44,8 @@ function StatsBody() {
   const [board, setBoard] = useState('goals')
   const [sort, setSort] = useState('wins')
   const [scope, setScope] = useState(null) // a season's key, 'all', or null = the current season
+  const opts = useOptions()
+  const schedule = useSchedule()
   const { data, reload } = useLoad(async () => {
     const [players, history, seasons] = await Promise.all([api.listPlayers(), api.getHistory(), api.listSeasons()])
     return { players, history, seasons }
@@ -56,11 +61,12 @@ function StatsBody() {
     if (!data) return null
     const h = historyIn(data.history, period)
     const stats = computeStats(data.players, h.matches, h.goals, h.mvp)
-    return { stats, awards: computeAwards(stats), byId: Object.fromEntries(data.players.map((p) => [p.id, p])) }
-  }, [data, period])
+    const week = teamOfTheWeek(data.players, data.history, { size: schedule.team_size ?? 6, mvp: opts.mvp, assists: opts.assists })
+    return { stats, week, awards: computeAwards(stats), byId: Object.fromEntries(data.players.map((p) => [p.id, p])) }
+  }, [data, period, schedule.team_size, opts.mvp, opts.assists])
 
   if (!view) return <Loading />
-  const { stats, awards, byId } = view
+  const { stats, week, awards, byId } = view
 
   // Seasons: the current one, the earlier ones (newest first), and all time.
   const chips = periods.length
@@ -74,11 +80,21 @@ function StatsBody() {
     </div>
   )
 
+  // The last game day's best team (whatever season is picked).
+  const weekBanner = week && (
+    <a className="card week-banner" href="#/week">
+      <span className="week-banner-title">⭐ {t('stats.week.title')}</span>
+      <span className="award-faces">{week.team.map((r) => byId[r.id] && <Avatar key={r.id} player={byId[r.id]} size={30} />)}</span>
+      <span className="muted small">{t('stats.week.sub', { day: dayLabel(week.night.day) })}</span>
+    </a>
+  )
+
   if (stats.matchCount === 0) {
     const previous = periods.length > 1 && active === current ? periods.at(-2) : null
     return (
       <>
         {seasonChips}
+        {weekBanner}
         <div className="card empty">
           <div className="empty-emoji">📊</div>
           <strong>{previous ? t('stats.season.justStarted') : t('stats.empty.title')}</strong>
@@ -99,6 +115,7 @@ function StatsBody() {
     <>
       {seasonChips}
       <p className="muted small">{t('stats.matchesSoFar', { count: stats.matchCount })}</p>
+      {weekBanner}
       <section className="award-grid">
         {awards.map((a) => (
           <a key={a.key} className="award" href={`#/card/${a.ids[a.ids.length - 1]}`}>

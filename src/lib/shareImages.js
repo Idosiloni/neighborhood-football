@@ -125,3 +125,20 @@ export async function shareImage(blob, fileName, message) {
   setTimeout(() => URL.revokeObjectURL(url), 5000)
   return 'downloaded'
 }
+
+// Team of the Week: the players, best first, each with the day's line; the star on top.
+export async function drawWeek({ title, sub, rows }) {
+  const { canvas, ctx } = await canvasWith(title, sub)
+  const rowH = Math.min(120, 840 / Math.max(rows.length, 1))
+  let y = 270
+  rows.forEach((r, i) => {
+    round(ctx, 90, y, W - 180, rowH - 16, 20, i === 0 ? 'rgba(246,215,124,0.92)' : 'rgba(255,255,255,0.12)')
+    const ink = i === 0 ? '#2b1f05' : '#ffffff'
+    const mid = y + rowH / 2 + 2
+    const [nameX, lineX] = isRTL() ? [W - 130, 130] : [130, W - 130]
+    text(ctx, `${i === 0 ? '⭐ ' : ''}${r.name}`, nameX, mid, { size: Math.min(48, rowH * 0.42), color: ink, align: isRTL() ? 'right' : 'left', max: 470 })
+    text(ctx, r.line, lineX, mid, { size: Math.min(34, rowH * 0.3), weight: 600, color: ink, align: isRTL() ? 'left' : 'right', max: 400 })
+    y += rowH
+  })
+  return toJpeg(canvas)
+}

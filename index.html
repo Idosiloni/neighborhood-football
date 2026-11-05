@@ -14,18 +14,51 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@400;500;700&family=Karantina:wght@400;700&display=swap" rel="stylesheet" />
     <style>
-      /* Before the app starts: a ball rolling on a chalk line (the app's own is src/components/Loading.jsx). */
+      /* While the app starts: a green pitch, a ball bouncing on a chalk line, the name.
+         App.jsx fades it out once the first screen is ready (hideSplash in src/lib/splash.js). */
       body { margin: 0; background: #f3f6f3; }
-      .splash { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; }
-      .splash-track { position: relative; width: 150px; height: 44px; border-bottom: 3px solid rgb(17 36 26 / 0.22); }
-      .splash-track svg { position: absolute; bottom: 2px; left: calc(50% - 17px); animation: splash-roll 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite; filter: drop-shadow(0 2px 2px rgb(17 36 26 / 0.25)); }
-      @keyframes splash-roll { 0%, 100% { transform: translateX(-56px) rotate(-180deg); } 50% { transform: translateX(56px) rotate(180deg); } }
-      @media (prefers-reduced-motion: reduce) { .splash-track svg { animation: none; } }
+      #splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; align-content: center; gap: 22px;
+        background: repeating-linear-gradient(180deg, #1f8a4c 0 64px, #239552 64px 128px); color: #fff; transition: opacity 0.35s ease-out; }
+      #splash.gone { opacity: 0; pointer-events: none; }
+      .splash-stage { position: relative; width: 200px; height: 170px; }
+      .splash-stage::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 2px; background: rgb(255 255 255 / 0.85); }
+      .splash-shadow { position: absolute; z-index: 1; bottom: -4px; left: calc(50% - 34px); width: 68px; height: 12px; border-radius: 50%; background: rgb(0 0 0 / 0.28);
+        animation: splash-shadow 0.9s infinite; }
+      .splash-ball { position: absolute; bottom: 4px; left: calc(50% - 44px); width: 88px; height: 88px; animation: splash-bounce 0.9s infinite; transform-origin: 50% 100%; }
+      .splash-ball svg { display: block; width: 100%; height: 100%; animation: splash-spin 1.8s linear infinite; }
+      .splash-name { font-family: 'Karantina', 'IBM Plex Sans Hebrew', system-ui, sans-serif; font-weight: 700; font-size: 58px; line-height: 0.9; letter-spacing: 0.5px;
+        text-shadow: 0 2px 0 rgb(0 0 0 / 0.12); }
+      @keyframes splash-bounce {
+        0% { transform: translateY(0) scale(1.12, 0.86); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+        12% { transform: translateY(-8px) scale(0.94, 1.06); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+        50% { transform: translateY(-78px) scale(1, 1); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+        100% { transform: translateY(0) scale(1.12, 0.86); }
+      }
+      @keyframes splash-shadow {
+        0%, 100% { transform: scale(1); opacity: 1; animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+        50% { transform: scale(0.45); opacity: 0.45; animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+      }
+      @keyframes splash-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        .splash-ball, .splash-ball svg, .splash-shadow { animation: none; }
+        #splash { transition: none; }
+      }
     </style>
     <title>כדורגל שכונה</title>
   </head>
   <body>
-    <div id="root"><div class="splash" aria-hidden="true"><div class="splash-track"><svg width="34" height="34" viewBox="-50 -50 100 100"><defs><clipPath id="splash-clip"><circle r="46"/></clipPath></defs><circle r="46" fill="#fff"/><g clip-path="url(#splash-clip)" fill="#11241a" stroke="#11241a" stroke-width="3" stroke-linejoin="round"><polygon points="0,-15 14.3,-4.6 8.8,12.1 -8.8,12.1 -14.3,-4.6"/><polygon points="0,-30 -12.4,-39 -7.6,-53.5 7.6,-53.5 12.4,-39"/><polygon points="28.5,-9.3 33.3,-23.8 48.5,-23.8 53.3,-9.3 40.9,-0.3"/><polygon points="17.6,24.3 32.9,24.3 37.6,38.8 25.3,47.8 12.9,38.8"/><polygon points="-17.6,24.3 -12.9,38.8 -25.3,47.8 -37.6,38.8 -32.9,24.3"/><polygon points="-28.5,-9.3 -40.9,-0.3 -53.3,-9.3 -48.5,-23.8 -33.3,-23.8"/><path fill="none" d="M0,-15V-30M14.3,-4.6L28.5,-9.3M8.8,12.1L17.6,24.3M-8.8,12.1L-17.6,24.3M-14.3,-4.6L-28.5,-9.3"/></g><circle r="46" fill="none" stroke="#11241a" stroke-width="4"/></svg></div></div></div>
+    <div id="splash" aria-hidden="true">
+      <div class="splash-stage"><div class="splash-shadow"></div><div class="splash-ball"><svg viewBox="-50 -50 100 100"><defs><clipPath id="splash-clip"><circle r="46"/></clipPath></defs><circle r="46" fill="#fff"/><g clip-path="url(#splash-clip)" fill="#11241a" stroke="#11241a" stroke-width="3" stroke-linejoin="round"><polygon points="0,-15 14.3,-4.6 8.8,12.1 -8.8,12.1 -14.3,-4.6"/><polygon points="0,-30 -12.4,-39 -7.6,-53.5 7.6,-53.5 12.4,-39"/><polygon points="28.5,-9.3 33.3,-23.8 48.5,-23.8 53.3,-9.3 40.9,-0.3"/><polygon points="17.6,24.3 32.9,24.3 37.6,38.8 25.3,47.8 12.9,38.8"/><polygon points="-17.6,24.3 -12.9,38.8 -25.3,47.8 -37.6,38.8 -32.9,24.3"/><polygon points="-28.5,-9.3 -40.9,-0.3 -53.3,-9.3 -48.5,-23.8 -33.3,-23.8"/><path fill="none" d="M0,-15V-30M14.3,-4.6L28.5,-9.3M8.8,12.1L17.6,24.3M-8.8,12.1L-17.6,24.3M-14.3,-4.6L-28.5,-9.3"/></g><circle r="46" fill="none" stroke="#11241a" stroke-width="4"/></svg></div></div>
+      <div class="splash-name">כדורגל שכונה</div>
+    </div>
+    <script>
+      // The name in the language this phone used last time (src/i18n keeps it under "lang" / "group-lang").
+      try {
+        var l = localStorage.getItem('lang') || localStorage.getItem('group-lang') || ''
+        if (/^en/.test(l)) document.querySelector('.splash-name').textContent = /GB/.test(l) ? 'Neighbourhood Football' : 'Neighborhood Football'
+      } catch (e) {}
+    </script>
+    <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

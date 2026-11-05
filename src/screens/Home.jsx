@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react'
+import { Fragment, useEffect, useMemo } from 'react'
 import { api } from '../data'
 import { useLoad, useLiveUpdates } from '../lib/hooks'
 import { getMyCode } from '../lib/identity'
@@ -16,26 +16,33 @@ import InviteCard from '../components/InviteCard'
 import GroupSwitcher from '../components/GroupSwitcher'
 import { unplaced } from '../lib/placement'
 import { t, tl } from '../i18n'
-import { useOptions } from '../lib/schedule'
+import { useOptions, useSchedule } from '../lib/schedule'
+import { isFresh, teamOfTheWeek } from '../lib/week'
+import { tierOf } from '../lib/stats'
+import { fullCard } from '../lib/attributes'
+import { positionsOf } from '../lib/positions'
+import { rememberTier, seenTier, wentUp } from '../lib/cardSeen'
 
 export default function Home() {
   const ready = useSchemaReady()
   const opts = useOptions() // which features this group uses
+  const schedule = useSchedule()
   const code = getMyCode()
   const day = today()
 
   const { data, reload } = useLoad(async () => {
     const me = code ? await api.getVoter(code).catch(() => null) : null
     if (!ready) return { me }
-    const [players, night, history, myVotes] = await Promise.all([
+    const [players, night, history, myVotes, cats] = await Promise.all([
       api.listPlayers(),
       api.getNight(day),
       api.getHistory(),
       me ? api.myMvpVotes(code).catch(() => []) : [],
+      me && opts.rating === 'attrs' ? api.attrCards().catch(() => null) : null,
     ])
     const attendance = night ? await api.listAttendance(night.id) : []
-    return { me, players, night, attendance, history, myVotes }
-  }, [ready, code, day])
+    return { me, players, night, attendance, history, myVotes, cats }
+  }, [ready, code, day, opts.rating])
   useLiveUpdates(reload)
 
   const view = useMemo(() => {
@@ -58,7 +65,15 @@ export default function Home() {
           .filter((m) => Date.now() - Date.parse(m.ended_at ?? m.created_at) < 24 * 3600_000)
           .sort((x, y) => (y.ended_at ?? '').localeCompare(x.ended_at ?? ''))[0]
       : null
+    // My card's color now (to tell when it went up) and this week's best team.
+    const mine = meId && players.find((p) => p.id === meId)
+    const myOverall = mine ? (fullCard(data.cats, mine, positionsOf(mine))?.overall ?? stats.byId[meId]?.overall) : null
+    const week = teamOfTheWeek(players, history, { size: schedule.team_size ?? 6, mvp: opts.mvp, assists: opts.assists })
     return {
+      myTier: mine ? tierOf(myOverall) : null,
+      upTo: mine && wentUp(meId, tierOf(myOverall)) ? tierOf(myOverall) : null,
+      week: isFresh(week, day) ? week : null,
+      inWeek: isFresh(week, day) && week.team.some((r) => r.id === meId),
       newOnes: unplaced(players, data.me),
       toVote,
       roster,
@@ -72,7 +87,12 @@ export default function Home() {
       liveScore: live ? scoreOf(history.goals.filter((g) => g.match_id === live.id)) : null,
       featured: awards.filter((a) => ['scorer', 'hot', 'duo'].includes(a.key)),
     }
-  }, [data])
+  }, [data, schedule.team_size, opts.mvp, opts.assists, day])
+
+  // The first look at my card's color is only remembered, so the next move up can be revealed.
+  useEffect(() => {
+    if (view?.myTier && data?.me && seenTier(data.me.id) == null) rememberTier(data.me.id, view.myTier)
+  }, [view?.myTier, data?.me])
 
   const me = data?.me
   const groupName = me?.group?.name
@@ -118,6 +138,26 @@ export default function Home() {
         </a>
       )}
 
+      {view?.upTo && (
+        <a className={`card cta-card up-cta ${view.upTo}`} href="#/me">
+          <div>
+            <strong>{t('stats.reveal.homeTitle', { tier: t(`stats.tiers.${view.upTo}`) })}</strong>
+            <p className="muted">{t('stats.reveal.homeText')}</p>
+          </div>
+          <Icon name="forward" />
+        </a>
+      )}
+
+      {view?.inWeek && (
+        <a className="card cta-card week-you" href="#/week">
+          <div>
+            <strong>{t('stats.week.youAreIn')}</strong>
+            <p className="muted">{t('stats.week.youAreInText')}</p>
+          </div>
+          <Icon name="forward" />
+        </a>
+      )}
+
       {view?.newOnes?.length > 0 && opts.rating === 'peers' && (
         <a className="card cta-card" href="#/place">
           <div>
@@ -139,8 +179,18 @@ export default function Home() {
       )}
 
       {/* Only what the bottom bar doesn't already have: tonight while it's on, and rating. */}
-      {(view?.present > 0 || opts.rating === 'attrs' || opts.rating === 'peers') && (
+      {(view?.present > 0 || view?.week || opts.rating === 'attrs' || opts.rating === 'peers') && (
         <nav className="quick-links">
+          {view?.week && !view.inWeek && (
+            <a className="quick-link" href="#/week">
+              <span className="quick-emoji" aria-hidden="true">⭐</span>
+              <span>
+                <strong>{t('stats.week.title')}</strong>
+                <small>{view.week.team.map((r) => view.byId[r.id]?.name).filter(Boolean).slice(0, 3).join(', ')}…</small>
+              </span>
+              <Icon name="forward" size={18} />
+            </a>
+          )}
           {view?.present > 0 && (
             <a className="quick-link" href="#/tonight">
               <Icon name="pitch" size={22} />

@@ -206,19 +206,44 @@ export function overall(s) {
   return Math.min(99, Math.round(value))
 }
 
+// The card's color from its overall: gold 75+, silver 65+, bronze below; 'new' until there is one.
+export const TIERS = [
+  { tier: 'bronze', from: 0 },
+  { tier: 'silver', from: 65 },
+  { tier: 'gold', from: 75 },
+]
+export const TIER_ORDER = ['new', 'bronze', 'silver', 'gold']
+
+export function tierOf(overall) {
+  if (overall == null) return 'new'
+  return TIERS.filter((x) => overall >= x.from).at(-1).tier
+}
+
+// The next color and how many points are missing for it (null at gold).
+export function nextTier(overall) {
+  if (overall == null) return null
+  const next = TIERS.find((x) => x.from > overall)
+  return next ? { tier: next.tier, need: next.from - overall } : null
+}
+
 // The six numbers on the card: real stats with plain labels (no made-up 0-99 scale).
-// key: stable id (the label changes with the language).
-export function cardAttributes(s) {
+// key: stable id (the label changes with the language). Only what the group records:
+// no MVP box when the group doesn't vote, no assists box when it doesn't record them.
+export function cardAttributes(s, { mvp = true, assists = true } = {}) {
   const per = (n, d) => (d ? (n / d).toFixed(1) : '0')
   const attr = (key, value) => ({ key, label: t(`stats.attrs.${key}`), value })
-  return [
+  const list = [
     attr('games', s.games),
     attr('winRate', `${s.games ? Math.round((s.wins / s.games) * 100) : 0}%`),
-    attr('mvp', s.mvp),
+    mvp && attr('mvp', s.mvp),
     attr('goals', s.goals),
-    attr('assists', s.assists),
+    assists && attr('assists', s.assists),
     s.keeperGames > 0 ? attr('conceded', per(s.conceded, s.keeperGames)) : attr('bestStreak', s.bestStreak),
-  ]
+    attr('attendance', s.attendance == null ? '–' : `${Math.round(s.attendance * 100)}%`),
+    s.keeperGames > 0 && attr('bestStreak', s.bestStreak),
+    attr('wins', s.wins),
+  ].filter(Boolean)
+  return list.slice(0, 6)
 }
 
 const top = (items, value, { min = -Infinity, tie = () => 0 } = {}) =>

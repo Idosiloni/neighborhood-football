@@ -876,10 +876,64 @@ p { margin: 0; }
   background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / 0.22) 45%, transparent 60%);
   pointer-events: none;
 }
-.fut-card.gold { --c1: #f7dc7a; --c2: #b8892a; --ink: #2b1f05; }
-.fut-card.silver { --c1: #e4e9ec; --c2: #8b979e; --ink: #1a2126; }
-.fut-card.bronze { --c1: #e0a57a; --c2: #8a5232; --ink: #2a1408; }
-.fut-card.new { --c1: #2ba35e; --c2: #146438; --ink: #ffffff; }
+.fut-card.gold, .tier-chip.gold, .reveal.gold { --c1: #f7dc7a; --c2: #b8892a; --ink: #2b1f05; }
+.fut-card.silver, .tier-chip.silver, .reveal.silver { --c1: #e4e9ec; --c2: #8b979e; --ink: #1a2126; }
+.fut-card.bronze, .tier-chip.bronze, .reveal.bronze { --c1: #e0a57a; --c2: #8a5232; --ink: #2a1408; }
+.fut-card.new, .tier-chip.new { --c1: #2ba35e; --c2: #146438; --ink: #ffffff; }
+/* In this week's Team of the Week: night colors with gold, whatever the card's color. */
+.fut-card.week { --c1: #24303f; --c2: #070b11; --ink: #f6d77c; }
+.fut-week {
+  position: absolute; top: 16px; inset-inline: 0; margin: auto; width: max-content;
+  padding: 1px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 700;
+  background: var(--ink); color: var(--c2);
+}
+.fut-card.week .fut-top { margin-top: 22px; }
+
+/* The card's color and how far the next one is */
+.tier-line { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin: 0; font-size: 0.9rem; }
+.tier-chip { padding: 2px 12px; border-radius: 999px; font-weight: 700; color: var(--ink); background: linear-gradient(160deg, var(--c1), var(--c2)); }
+
+/* A card going up a color: the back spins in, light bursts, it turns over */
+.reveal {
+  position: fixed; inset: 0; z-index: 90; overflow: hidden;
+  display: grid; place-items: center; align-content: center; gap: 18px; padding: 24px;
+  background: radial-gradient(circle at 50% 42%, #1c3a2a, #050b08 70%); color: #fff;
+  animation: fade 0.25s ease-out;
+}
+.reveal-rays {
+  position: absolute; top: 42%; left: 50%; width: 170vmax; height: 170vmax; margin: -85vmax 0 0 -85vmax;
+  background: repeating-conic-gradient(from 0deg, transparent 0 9deg, color-mix(in srgb, var(--c1) 26%, transparent) 9deg 18deg);
+  mask-image: radial-gradient(circle, black 8%, transparent 45%);
+  opacity: 0; transition: opacity 0.6s; animation: rays-spin 16s linear infinite; pointer-events: none;
+}
+.reveal.open .reveal-rays { opacity: 1; }
+@keyframes rays-spin { to { transform: rotate(360deg); } }
+.reveal-flip {
+  position: relative; display: grid; transform-style: preserve-3d;
+  transition: transform 0.75s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: reveal-in 1.1s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.reveal.open .reveal-flip { transform: rotateY(180deg); }
+@keyframes reveal-in {
+  0% { transform: translateY(60px) scale(0.3) rotateY(-720deg); opacity: 0; }
+  70% { transform: scale(1.04) rotateY(0); opacity: 1; }
+  80% { transform: rotate(-2deg); }
+  90% { transform: rotate(2deg); }
+}
+.reveal-back, .reveal-front { grid-area: 1 / 1; display: grid; place-items: center; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+.reveal-front { transform: rotateY(180deg); }
+.reveal-front .fut-card { animation: none; }
+.reveal-back {
+  clip-path: polygon(50% 0, 100% 6%, 100% 88%, 50% 100%, 0 88%, 0 6%);
+  background: repeating-linear-gradient(180deg, #1f8a4c 0 34px, #239552 34px 68px);
+  box-shadow: inset 0 0 0 6px var(--c1);
+}
+.reveal-title { position: relative; margin: 0; min-height: 2.6rem; font-family: var(--display); font-size: 2.6rem; line-height: 1; text-align: center; color: var(--c1); }
+.reveal-tap { position: relative; margin: 0; font-size: 0.85rem; opacity: 0.7; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal-flip, .reveal-rays { animation: none; }
+  .reveal-flip { transition: none; }
+}
 @keyframes card-in { from { transform: scale(0.85) rotate(-3deg); opacity: 0; } }
 .fut-top { display: flex; align-items: flex-start; justify-content: center; gap: 10px; margin-top: 10px; }
 .fut-rating { display: flex; flex-direction: column; align-items: center; line-height: 1; }
@@ -1257,3 +1311,22 @@ html[data-text] .st-row { grid-template-columns: 1.4rem minmax(0, 1fr) 2rem 3.4r
 .fold[open] > summary::after { transform: rotate(180deg); }
 .fold[open] > summary { margin-bottom: 10px; }
 .fold .player-list { margin-top: 10px; }
+
+/* ── Team of the Week ── */
+.week-pitch .pitch { background: repeating-linear-gradient(0deg, #1d6b3f 0 54px, #1a613a 54px 108px); }
+.spot.side-week .avatar { box-shadow: 0 0 0 3px #f6d77c, 0 4px 10px rgb(0 0 0 / 0.35); }
+.spot.star .avatar { box-shadow: 0 0 0 4px #f6d77c, 0 0 18px 4px rgb(246 215 124 / 0.7); }
+.spot.star span:last-child::before { content: '⭐ '; }
+.week-star { box-shadow: inset 0 0 0 2px #e2b93b, var(--shadow); background: #fbf4de; }
+.week-pts { margin-inline-start: auto; font-family: var(--display); font-size: 1.3rem; white-space: nowrap; color: var(--grass-deep); }
+.week-you { display: flex; flex-direction: column; gap: 2px; margin: 0; background: #fbf4de; }
+.stack.tight { gap: 0; }
+.week-banner { display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: #f6d77c; background: linear-gradient(160deg, #24303f, #070b11); }
+.week-banner .muted { color: rgb(246 215 124 / 0.75); }
+.week-banner-title { font-family: var(--display); font-size: 1.8rem; line-height: 1; }
+.week-banner .award-faces .avatar { box-shadow: 0 0 0 2px #f6d77c; }
+.up-cta { background: linear-gradient(160deg, var(--c1), var(--c2)); color: var(--ink); }
+.up-cta .muted { color: inherit; opacity: 0.8; }
+.up-cta.gold { --c1: #f7dc7a; --c2: #b8892a; --ink: #2b1f05; }
+.up-cta.silver { --c1: #e4e9ec; --c2: #8b979e; --ink: #1a2126; }
+.up-cta.bronze { --c1: #e0a57a; --c2: #8a5232; --ink: #2a1408; }

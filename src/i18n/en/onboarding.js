@@ -16,6 +16,7 @@ export default {
     short: 'Join',
     codeSub: 'Anyone already in the group can give you the code',
     codeLabel: 'Join code',
+    personalToo: 'Have a personal link from another group? You can type the code at its end here too (8 characters).',
     notFound: "Couldn't find a group with this code",
     notFoundHint: 'Maybe it was mistyped, or the link was replaced. Ask the group admin for a new one.',
     tryAnother: 'Try another code',

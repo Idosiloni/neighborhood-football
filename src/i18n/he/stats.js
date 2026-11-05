@@ -20,12 +20,14 @@ export default {
   // The six numbers on the card.
   attrs: {
     games: 'משחקים',
-    winRate: 'ניצחונות',
+    winRate: '% ניצחון',
     mvp: 'MVP',
     goals: 'שערים',
     assists: 'בישולים',
     conceded: 'ספיגות למשחק',
     bestStreak: 'שיא רצף',
+    attendance: 'נוכחות',
+    wins: 'ניצחונות',
   },
 
   awards: {
@@ -195,5 +197,43 @@ export default {
   fullCard: {
     basedOn: 'לפי {range} דירוגים · מתעדכן פעם בשבוע',
     missing: 'עוד אין מספיק דירוגים לכל הקטגוריות. בינתיים הדירוג על הכרטיס הוא מהמשחקים.',
+  },
+
+  // The card's color, and how far the next one is.
+  tiers: {
+    new: 'חדש',
+    bronze: 'ארד',
+    silver: 'כסף',
+    gold: 'זהב',
+    toNext: { one: 'עוד נקודה אחת ל{tier}', two: 'עוד 2 נקודות ל{tier}', other: 'עוד {count} נקודות ל{tier}' },
+    top: 'הכי גבוה שיש ✨',
+  },
+
+  // A card that went up a color.
+  reveal: {
+    label: 'הכרטיס עלה',
+    mine: 'הכרטיס שלך עלה ל{tier}!',
+    other: 'הכרטיס של {name} עלה ל{tier}!',
+    tap: 'לחיצה לסגירה',
+    homeTitle: 'הכרטיס שלך עלה ל{tier} ✨',
+    homeText: 'לחיצה לחשיפה',
+  },
+
+  // Team of the Week: the best of the last game day.
+  week: {
+    title: 'נבחרת השבוע',
+    badge: '⭐ נבחרת השבוע',
+    sub: 'הכי טובים של {day}',
+    star: 'שחקן השבוע',
+    points: 'ניצחון 3 · תיקו 1 · שער 2',
+    pointsAssists: ' · בישול 1',
+    pointsMvp: ' · MVP 2',
+    wins: { one: 'ניצחון אחד', two: '2 ניצחונות', other: '{count} ניצחונות' },
+    pts: { one: 'נקודה אחת', two: '2 נקודות', other: '{count} נקודות' },
+    youAreIn: 'יש לך מקום בנבחרת השבוע! ⭐',
+    youAreInText: 'הכרטיס שלך לבש את צבעי הנבחרת עד יום המשחק הבא',
+    share: '📤 שיתוף הנבחרת',
+    shareText: 'נבחרת השבוע ⚽',
+    empty: 'אחרי יום משחק יופיעו כאן הכי טובים שלו.',
   },
 }

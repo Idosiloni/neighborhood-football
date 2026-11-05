@@ -33,22 +33,32 @@ export default function Join({ joinCode = '' }) {
   return <JoinWithCode joinCode={joinCode} />
 }
 
-// Typed in by hand: the group's join code (6 letters/digits; older groups have 4 digits).
+// Typed in by hand: the group's join code (6 letters/digits; older groups have 4 digits),
+// or a personal code (8), which opens that player's group on this phone too.
 function JoinCodeForm() {
   const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
   return (
     <main className="page">
       <PageHeader title={t('onboarding.join.title')} sub={t('onboarding.join.codeSub')} back="#/" />
       <form
         className="card stack"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault()
-          if (value.length >= 4) go(`/join/${value}`)
+          if (value.length < 4) return
+          if (value.length === 8) {
+            setBusy(true)
+            const voter = await api.getVoter(value).catch(() => null)
+            setBusy(false)
+            if (voter) return go(`/v/${value}`)
+          }
+          go(`/join/${value}`)
         }}
       >
         <input className="input code-input" value={value} onChange={(e) => setValue(e.target.value.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 8))}
           autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="ab3k9m" dir="ltr" aria-label={t('onboarding.join.codeLabel')} autoFocus />
-        <button className="btn big" disabled={value.length < 4}>{t('common.continue')}</button>
+        <button className="btn big" disabled={value.length < 4 || busy}>{t('common.continue')}</button>
+        <small className="muted">{t('onboarding.join.personalToo')}</small>
       </form>
     </main>
   )

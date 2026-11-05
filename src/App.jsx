@@ -20,11 +20,13 @@ import CreateGroup from './screens/CreateGroup'
 import Hello from './screens/Hello'
 import QuickSignup from './screens/QuickSignup'
 import RateCategories from './screens/RateCategories'
+import Week from './screens/Week'
 import Celebration from './components/Celebration'
 import { setGroupLanguage, t, useLocale } from './i18n'
 import { optionsOf } from './lib/options'
 import { applyTeamColors } from './lib/teamColors'
-import Loading from './components/Loading'
+import { useEffect } from 'react'
+import { hideSplash } from './lib/splash'
 
 // Screens that work before this phone is in any group.
 const OPEN = new Set(['v', 'vote', 'join', 'new', 'in'])
@@ -47,6 +49,8 @@ function Screen({ page, param }) {
       return <Stats />
     case 'card':
       return <PlayerCard id={param} />
+    case 'week':
+      return <Week />
     case 'me':
       return <Me edit={param === 'edit'} />
     case 'place':
@@ -99,6 +103,11 @@ function AppBody() {
   const [page, param] = useRoute()
   const code = getMyCode()
   const session = useSession(code, page)
+  // The start screen from index.html stays until the app knows which group this phone is in.
+  const started = notConfigured || session !== undefined
+  useEffect(() => {
+    if (started) hideSplash()
+  }, [started])
 
   if (notConfigured) {
     return (
@@ -108,7 +117,7 @@ function AppBody() {
     )
   }
 
-  if (session === undefined) return <Loading page delay={0} />
+  if (session === undefined) return null
 
   const outside = session.me === null && !OPEN.has(page)
   // The vote screen has its own save bar at the bottom; outside a group there is nowhere to go;

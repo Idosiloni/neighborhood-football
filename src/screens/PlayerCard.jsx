@@ -1,11 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { drawCard, shareCard } from '../lib/cardImage'
 import { api } from '../data'
 import { useLoad } from '../lib/hooks'
 import { useSchemaReady } from '../lib/schema'
-import { cardAttributes, computeAwards, computeStats, funTraits, headToHead, historyIn, milestones, seasonPeriods, tagline } from '../lib/stats'
+import { cardAttributes, computeAwards, computeStats, funTraits, headToHead, historyIn, milestones, nextTier, seasonPeriods, tagline, tierOf } from '../lib/stats'
 import FormDots from '../components/FormDots'
-import { cardValues, FIELD_ATTRS, GK_ATTRS, overallOf, ratersRange } from '../lib/attributes'
+import { fullCard, ratersRange } from '../lib/attributes'
+import { isFresh, teamOfTheWeek } from '../lib/week'
+import { rememberTier, wentUp } from '../lib/cardSeen'
+import { today } from '../lib/dates'
+import { getMyCode } from '../lib/identity'
+import CardReveal from '../components/CardReveal'
 import { optionsOf } from '../lib/options'
 import PageHeader from '../components/PageHeader'
 import Avatar from '../components/Avatar'
@@ -30,7 +35,8 @@ export function CardBody({ id }) {
     const [players, history, seasons, schedule] = await Promise.all([api.listPlayers(), api.getHistory(), api.listSeasons(), api.getSchedule()])
     // A group rating by categories: the published values for the cards.
     const cats = optionsOf(schedule).rating === 'attrs' ? await api.attrCards() : null
-    return { players, history, seasons, cats }
+    const me = getMyCode() ? await api.getVoter(getMyCode()).catch(() => null) : null
+    return { players, history, seasons, cats, schedule, meId: me?.id ?? null }
   }, [id])
 
   const view = useMemo(() => {
@@ -47,54 +53,53 @@ export function CardBody({ id }) {
       now = computeStats(data.players, h.matches, h.goals, h.mvp).byId[id]
     }
     // The full card: the player's categories (keepers-only: the goalkeeping ones) and the overall from them.
-    let full = null
-    if (data.cats) {
-      const values = cardValues(data.cats, id)
-      const positions = positionsOf(player)
-      const keeperOnly = positions.length === 1 && positions[0] === 'gk'
-      const keys = keeperOnly ? GK_ATTRS : FIELD_ATTRS
-      const best = overallOf(values, positions.length ? positions : ['any'])
-      const raters = Math.max(0, ...data.cats.filter((r) => r.player_id === id).map((r) => r.raters))
-      full = { values, keys, overall: best?.value ?? null, raters }
-    }
-    return { player, s: stats.byId[id], awards, h2h: headToHead(stats, id), now, full, byId: Object.fromEntries(data.players.map((p) => [p.id, p])) }
+    const full = fullCard(data.cats, player, positionsOf(player))
+    const opts = optionsOf(data.schedule)
+    const week = teamOfTheWeek(data.players, data.history, { size: data.schedule?.team_size ?? 6, mvp: opts.mvp, assists: opts.assists })
+    const inWeek = isFresh(week, today()) && week.team.some((x) => x.id === id)
+    return { player, s: stats.byId[id], awards, h2h: headToHead(stats, id), now, full, opts, inWeek, mine: data.meId === id, byId: Object.fromEntries(data.players.map((p) => [p.id, p])) }
   }, [data, id])
 
   const [sharing, setSharing] = useState(false)
+  const [reveal, setReveal] = useState(null) // { from, to } while the move up is shown
+
+  const overallNow = view?.player ? (view.full?.overall ?? view.s.overall) : undefined
+  const tierNow = overallNow === undefined ? null : tierOf(overallNow)
+  // A card that went up since this phone last showed it opens with a reveal; then it is remembered.
+  useEffect(() => {
+    if (!tierNow) return
+    if (wentUp(id, tierNow)) setReveal({ to: tierNow })
+    rememberTier(id, tierNow)
+  }, [id, tierNow])
 
   if (!view) return <Loading />
   if (!view.player) return <p className="center muted">{t('stats.card.notFound')}</p>
 
-  const { player, s, awards, h2h, now, full, byId } = view
+  const { player, s, awards, h2h, now, full, opts, inWeek, mine, byId } = view
   const marks = milestones(s)
   // With category ratings the card shows the categories, and their overall once every one is in.
   const overall = full?.overall ?? s.overall
-  const tier = overall == null ? 'new' : overall >= 75 ? 'gold' : overall >= 65 ? 'silver' : 'bronze'
+  const tier = tierOf(overall)
+  const next = nextTier(overall)
   const attrs = full
     ? full.keys.map((k) => ({ key: k, label: t(`stats.cats.${k}`), value: full.values[k] ?? '?' }))
-    : cardAttributes(s)
+    : cardAttributes(s, opts)
   const traits = funTraits(s, player)
+  const card = <FutCard player={player} overall={overall} tier={tier} attrs={attrs} award={awards[0]} week={inWeek} />
 
   return (
     <>
-      <div className={`fut-card ${tier}`} onPointerMove={tilt} onPointerLeave={untilt}>
-        <div className="fut-top">
-          <div className="fut-rating">
-            <b>{overall ?? '?'}</b>
-            <span>{positionsText(player, { short: true })}</span>
-            {awards[0] && <span className="fut-side">{awards[0].emoji}</span>}
-          </div>
-          <CardPhoto player={player} />
-        </div>
-        <div className="fut-name">{player.name}</div>
-        {player.nickname && <div className="fut-nick">{t('stats.card.nickname', { name: player.nickname })}</div>}
-        {!player.nickname && awards[0] && <div className="fut-nick">{awards[0].title}</div>}
-        <div className={`fut-attrs${attrs.length === 4 ? ' four' : ''}`}>
-          {attrs.map((a) => (
-            <div key={a.key}><b>{a.value}</b><span>{a.label}</span></div>
-          ))}
-        </div>
-      </div>
+      {reveal && (
+        <CardReveal tier={reveal.to} mine={mine} name={player.name} onDone={() => setReveal(null)}>
+          <FutCard player={player} overall={overall} tier={tier} attrs={attrs} award={awards[0]} />
+        </CardReveal>
+      )}
+      {card}
+      <p className="tier-line">
+        {overall != null && <span className={`tier-chip ${tier}`}>{t(`stats.tiers.${tier}`)}</span>}
+        {next && <span className="muted">{t('stats.tiers.toNext', { count: next.need, tier: t(`stats.tiers.${next.tier}`) })}</span>}
+        {overall != null && !next && <span className="muted">{t('stats.tiers.top')}</span>}
+      </p>
       <button
         className="btn ghost"
         disabled={sharing}
@@ -180,6 +185,31 @@ export function CardBody({ id }) {
         </section>
       )}
     </>
+  )
+}
+
+// The card itself. week: in this week's Team of the Week (its own colors and a badge).
+export function FutCard({ player, overall, tier, attrs, award, week = false }) {
+  return (
+    <div className={`fut-card ${tier}${week ? ' week' : ''}`} onPointerMove={tilt} onPointerLeave={untilt}>
+      {week && <span className="fut-week">{t('stats.week.badge')}</span>}
+      <div className="fut-top">
+        <div className="fut-rating">
+          <b>{overall ?? '?'}</b>
+          <span>{positionsText(player, { short: true })}</span>
+          {award && <span className="fut-side">{award.emoji}</span>}
+        </div>
+        <CardPhoto player={player} />
+      </div>
+      <div className="fut-name">{player.name}</div>
+      {player.nickname && <div className="fut-nick">{t('stats.card.nickname', { name: player.nickname })}</div>}
+      {!player.nickname && award && <div className="fut-nick">{award.title}</div>}
+      <div className={`fut-attrs${attrs.length === 4 ? ' four' : ''}`}>
+        {attrs.map((a) => (
+          <div key={a.key}><b>{a.value}</b><span>{a.label}</span></div>
+        ))}
+      </div>
+    </div>
   )
 }
 
