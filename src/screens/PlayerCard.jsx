@@ -5,10 +5,12 @@ import { useLoad } from '../lib/hooks'
 import { useSchemaReady } from '../lib/schema'
 import { cardAttributes, computeAwards, computeStats, funTraits, headToHead, historyIn, milestones, seasonPeriods, tagline } from '../lib/stats'
 import FormDots from '../components/FormDots'
+import { cardValues, FIELD_ATTRS, GK_ATTRS, overallOf } from '../lib/attributes'
+import { optionsOf } from '../lib/options'
 import PageHeader from '../components/PageHeader'
 import Avatar from '../components/Avatar'
 import NeedsUpdate from '../components/NeedsUpdate'
-import { positionsText } from '../lib/positions'
+import { positionsOf, positionsText } from '../lib/positions'
 import { usePhoto } from '../lib/photos'
 import { t } from '../i18n'
 
@@ -24,8 +26,10 @@ export default function PlayerCard({ id }) {
 
 export function CardBody({ id }) {
   const { data } = useLoad(async () => {
-    const [players, history, seasons] = await Promise.all([api.listPlayers(), api.getHistory(), api.listSeasons()])
-    return { players, history, seasons }
+    const [players, history, seasons, schedule] = await Promise.all([api.listPlayers(), api.getHistory(), api.listSeasons(), api.getSchedule()])
+    // A group rating by categories: the published values for the cards.
+    const cats = optionsOf(schedule).rating === 'attrs' ? await api.attrCards() : null
+    return { players, history, seasons, cats }
   }, [id])
 
   const view = useMemo(() => {
@@ -41,7 +45,18 @@ export function CardBody({ id }) {
       const h = historyIn(data.history, season)
       now = computeStats(data.players, h.matches, h.goals, h.mvp).byId[id]
     }
-    return { player, s: stats.byId[id], awards, h2h: headToHead(stats, id), now, byId: Object.fromEntries(data.players.map((p) => [p.id, p])) }
+    // The full card: the player's categories (keepers-only: the goalkeeping ones) and the overall from them.
+    let full = null
+    if (data.cats) {
+      const values = cardValues(data.cats, id)
+      const positions = positionsOf(player)
+      const keeperOnly = positions.length === 1 && positions[0] === 'gk'
+      const keys = keeperOnly ? GK_ATTRS : FIELD_ATTRS
+      const best = overallOf(values, positions.length ? positions : ['any'])
+      const raters = Math.max(0, ...data.cats.filter((r) => r.player_id === id).map((r) => r.raters))
+      full = { values, keys, overall: best?.value ?? null, raters }
+    }
+    return { player, s: stats.byId[id], awards, h2h: headToHead(stats, id), now, full, byId: Object.fromEntries(data.players.map((p) => [p.id, p])) }
   }, [data, id])
 
   const [sharing, setSharing] = useState(false)
@@ -49,10 +64,14 @@ export function CardBody({ id }) {
   if (!view) return <p className="center muted">{t('common.loading')}</p>
   if (!view.player) return <p className="center muted">{t('stats.card.notFound')}</p>
 
-  const { player, s, awards, h2h, now, byId } = view
+  const { player, s, awards, h2h, now, full, byId } = view
   const marks = milestones(s)
-  const tier = s.overall == null ? 'new' : s.overall >= 75 ? 'gold' : s.overall >= 65 ? 'silver' : 'bronze'
-  const attrs = cardAttributes(s)
+  // With category ratings the card shows the categories, and their overall once every one is in.
+  const overall = full?.overall ?? s.overall
+  const tier = overall == null ? 'new' : overall >= 75 ? 'gold' : overall >= 65 ? 'silver' : 'bronze'
+  const attrs = full
+    ? full.keys.map((k) => ({ key: k, label: t(`stats.cats.${k}`), value: full.values[k] ?? '?' }))
+    : cardAttributes(s)
   const traits = funTraits(s, player)
 
   return (
@@ -60,7 +79,7 @@ export function CardBody({ id }) {
       <div className={`fut-card ${tier}`} onPointerMove={tilt} onPointerLeave={untilt}>
         <div className="fut-top">
           <div className="fut-rating">
-            <b>{s.overall ?? '?'}</b>
+            <b>{overall ?? '?'}</b>
             <span>{positionsText(player, { short: true })}</span>
             {awards[0] && <span className="fut-side">{awards[0].emoji}</span>}
           </div>
@@ -81,7 +100,7 @@ export function CardBody({ id }) {
         onClick={async () => {
           setSharing(true)
           try {
-            const blob = await drawCard({ player, overall: s.overall, tier, attrs, traits, line: tagline(player) })
+            const blob = await drawCard({ player, overall, tier, attrs, traits, line: tagline(player) })
             await shareCard(blob, player.name)
           } finally {
             setSharing(false)
@@ -96,7 +115,9 @@ export function CardBody({ id }) {
           {traits.map((x) => <span key={x.key} className="trait">{x.emoji} {x.label}</span>)}
         </div>
       )}
-      {s.overall == null && <p className="muted center small">{t('stats.card.ratingLater')}</p>}
+      {full && full.raters > 0 && <p className="muted center small">{t('stats.fullCard.basedOn', { count: full.raters })}</p>}
+      {full && full.overall == null && <p className="muted center small">{t('stats.fullCard.missing')}</p>}
+      {!full && s.overall == null && <p className="muted center small">{t('stats.card.ratingLater')}</p>}
 
       {s.games > 0 && (
         <section className="card stack card-more">

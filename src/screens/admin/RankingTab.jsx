@@ -10,7 +10,36 @@ export default function RankingTab({ players }) {
   const { rating } = useOptions()
   if (rating === 'admin') return <StarRatings players={players} />
   if (rating === 'none') return <p className="note">{t('admin.stars.none')}</p>
+  if (rating === 'attrs') return <AttrStatus players={players} />
   return <PeerRanking players={players} />
+}
+
+// Category ratings: who has rated and how many names (never the scores).
+function AttrStatus({ players }) {
+  const [rows, setRows] = useState(null)
+  useEffect(() => {
+    api.attrRatingStatus().then(setRows, () => setRows([]))
+  }, [players])
+  if (!rows) return <p className="center">{t('common.loading')}</p>
+  const byId = new Map(players.map((p) => [p.id, p]))
+  const list = rows.filter((r) => byId.has(r.player_id)).sort((a, b) => b.rated - a.rated || compareNames(byId.get(a.player_id).name, byId.get(b.player_id).name))
+  return (
+    <section className="stack">
+      <div className="card stack">
+        <strong>{t('admin.attrStatus.title')}</strong>
+        <p className="muted small">{t('admin.attrStatus.hint')}</p>
+      </div>
+      <ul className="player-list">
+        {list.map((r) => (
+          <li key={r.player_id} className="card star-row">
+            <Avatar player={byId.get(r.player_id)} size={30} />
+            <span className="rank-name">{byId.get(r.player_id).name}</span>
+            <span className={r.rated ? '' : 'muted'}>{t('admin.attrStatus.rated', { count: r.rated })}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
 }
 
 // 1–5 stars per active player, saved on every tap. Only admins see them.

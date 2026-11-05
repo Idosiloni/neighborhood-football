@@ -8,6 +8,7 @@ import { getMyCode, setMyCode } from '../lib/identity'
 import { fromPositions, positionsOf } from '../lib/positions'
 import { compareNames, language, t } from '../i18n'
 import { matchRules, optionsOf, optionsPatch, validOptions } from '../lib/options'
+import { ALL_ATTRS, combine, FIELD_ATTRS, MIN_RATERS } from '../lib/attributes'
 
 const KEY = 'football-demo-v3'
 
@@ -152,6 +153,15 @@ const ratingOf = (groupId) => {
   const mode = optionsOf(state.groups.find((g) => g.id === groupId)).rating
   if (mode === 'none') return () => 50
   if (mode === 'admin') return (id) => (state.stars?.[id] ? (state.stars[id] - 1) * 25 : 50)
+  if (mode === 'attrs') {
+    const active = groupPlayers(groupId).filter((p) => p.active).map((p) => p.id)
+    const rows = combine((state.attrRatings ?? []).filter((r) => r.group_id === groupId), active, { before: null })
+      .filter((r) => r.raters >= MIN_RATERS && FIELD_ATTRS.includes(r.attr))
+    return (id) => {
+      const mine = rows.filter((r) => r.player_id === id)
+      return mine.length ? (mine.reduce((t, r) => t + r.value, 0) / mine.length - 1) * 25 : 50
+    }
+  }
   const map = new Map(ratingsOf(groupId).map((r) => [r.player_id, r.score ?? 50]))
   return (id) => map.get(id) ?? 50
 }
@@ -233,6 +243,33 @@ export function createMockApi() {
       else if (stars >= 1 && stars <= 5) state.stars[playerId] = stars
       else throw new Error('invalid stars')
       save()
+    },
+    // Category ratings, like the database (combine() in src/lib/attributes.js does the same steps).
+    async myAttrRatings(code) {
+      const voter = playerByCode(code)
+      if (!voter) throw new Error('invalid code')
+      return (state.attrRatings ?? []).filter((r) => r.voter_id === voter.id).map(({ player_id, attr, score }) => ({ player_id, attr, score }))
+    },
+    async rateAttr(code, playerId, attr, score) {
+      const voter = playerByCode(code)
+      if (!voter || !voter.active) throw new Error('invalid code')
+      const player = state.players.find((p) => p.id === playerId)
+      if (!player || player.id === voter.id || player.group_id !== voter.group_id || !player.active || !ALL_ATTRS.includes(attr)) throw new Error('not allowed')
+      state.attrRatings = (state.attrRatings ?? []).filter((r) => !(r.voter_id === voter.id && r.player_id === playerId && r.attr === attr))
+      if (score != null) state.attrRatings.push({ voter_id: voter.id, player_id: playerId, group_id: voter.group_id, attr, score, updated_at: now() })
+      save()
+    },
+    async attrCards() {
+      const active = groupPlayers(myGroupId()).filter((p) => p.active).map((p) => p.id)
+      // The demo has no "tomorrow" to wait for: everything counts right away.
+      return combine((state.attrRatings ?? []).filter(inMyGroup), active, { before: null }).filter((r) => r.raters >= MIN_RATERS)
+    },
+    async attrRatingStatus() {
+      requireAdmin()
+      return groupPlayers(myGroupId()).filter((p) => p.active).map((p) => ({
+        player_id: p.id,
+        rated: new Set((state.attrRatings ?? []).filter((r) => r.voter_id === p.id).map((r) => r.player_id)).size,
+      }))
     },
     async quickRoster(joinCode, day) {
       const g = quickGroup(joinCode, day)

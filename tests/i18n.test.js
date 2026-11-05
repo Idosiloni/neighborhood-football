@@ -117,3 +117,20 @@ test('i18n: every text the code asks for exists in Hebrew and in English', async
   assert.deepEqual(missing, [])
   assert.ok(keys.size > 300, `only ${keys.size} keys found`)
 })
+
+test('i18n: no area file defines the same top-level key twice (the second would silently replace the first)', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs')
+  const dup = []
+  for (const lang of ['he', 'en']) {
+    const dir = new URL(`../src/i18n/${lang}/`, import.meta.url)
+    for (const f of readdirSync(dir)) {
+      const keys = [...readFileSync(new URL(f, dir), 'utf8').matchAll(/^ {2}([A-Za-z_]\w*):/gm)].map((m) => m[1])
+      const seen = new Set()
+      for (const k of keys) {
+        if (seen.has(k)) dup.push(`${lang}/${f}: ${k}`)
+        seen.add(k)
+      }
+    }
+  }
+  assert.deepEqual(dup, [])
+})

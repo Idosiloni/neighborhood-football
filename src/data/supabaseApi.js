@@ -76,6 +76,20 @@ export function createSupabaseApi(url, key) {
     async setStars(playerId, stars) {
       check(await db.rpc('set_stars', { p_player: playerId, p_stars: stars }))
     },
+    // Category ratings (schema version 8): my own sheet, rating one value, and the published cards.
+    async myAttrRatings(code) {
+      return check(await db.rpc('my_attr_ratings', { p_code: code }))
+    },
+    async rateAttr(code, playerId, attr, score) {
+      check(await db.rpc('rate_attr', { p_code: code, p_player: playerId, p_attr: attr, p_score: score }))
+    },
+    async attrCards() {
+      const { data, error } = await db.rpc('attr_cards')
+      return error ? [] : data // an older database, or not a member: no category cards
+    },
+    async attrRatingStatus() {
+      return check(await db.rpc('attr_rating_status'))
+    },
     // One-tap sign-up from the group's link (groups that allow it): no personal code needed.
     async quickRoster(joinCode, day) {
       return check(await db.rpc('quick_roster', { p_join: joinCode, p_day: day }))

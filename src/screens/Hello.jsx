@@ -24,7 +24,9 @@ export default function Hello() {
   const { me, players } = data
   const meFull = players.find((p) => p.id === me.id) ?? me
   const others = players.filter((p) => p.active && p.id !== me.id).length
-  const peers = optionsOf(schedule).rating === 'peers'
+  const { rating } = optionsOf(schedule)
+  const peers = rating === 'peers' || rating === 'attrs'
+  const rankHref = rating === 'attrs' ? '/rate' : `/v/${code}`
   const when = gameLabel(nextGameDay(new Date(), schedule), schedule)
   const step = (n) => tx(`onboarding.hello.step${n}`, { b: <b>{t(`onboarding.hello.step${n}b`)}</b> })
 
@@ -53,7 +55,7 @@ export default function Hello() {
 
       {/* Ranking right away, unless the group doesn't rank (the admin rates, or nobody does). */}
       {others > 0 && peers ? (
-        <button className="btn big" onClick={() => go(`/v/${code}`)}>{t('onboarding.hello.rankNow')}</button>
+        <button className="btn big" onClick={() => go(rankHref)}>{t('onboarding.hello.rankNow')}</button>
       ) : others === 0 ? (
         <p className="muted center">{t('onboarding.hello.noOne')}</p>
       ) : null}

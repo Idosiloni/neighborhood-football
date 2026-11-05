@@ -155,6 +155,13 @@ export default function Home() {
           <strong>{t('home.stats')}</strong>
           <span>{t('home.statsText')}</span>
         </a>
+        {opts.rating === 'attrs' && (
+          <a className="tile" href="#/rate">
+            <span className="tile-emoji">📊</span>
+            <strong>{t('stats.rate.cta')}</strong>
+            <span>{t('stats.rate.ctaText')}</span>
+          </a>
+        )}
         {opts.rating === 'peers' && (
           <a className="tile" href={code ? `#/v/${code}` : '#/vote'}>
             <span className="tile-emoji">🗳️</span>

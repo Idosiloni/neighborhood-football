@@ -1,4 +1,4 @@
-# Data contract (schema version 7: group options, match rules, draws, levels, seasons)
+# Data contract (schema version 8: group options, match rules, draws, levels, seasons, category ratings)
 
 The browser app (src/data/supabaseApi.js) and the database (supabase/schema.sql) must agree on this.
 The demo (src/data/mockApi.js) mirrors it in localStorage. Tests: tests/sql.test.js (PGlite).
@@ -64,9 +64,15 @@ Phones listen on channel `g:<group id>` (broadcast, event `change`) and reload.
 
 ## Functions (all `security definer set search_path = ''`, executable by anon and authenticated)
 
-- `schema_version()` → 7 (6: no seasons; 5: no levels/stars/one-tap; 4: no match rules or draws; 3: no `options`).
+- `schema_version()` → 8 (7: no category ratings; 6: no seasons; 5: no levels/stars/one-tap; 4: no match rules or draws; 3: no `options`).
 - `seasons` (id, group_id, name 1–30, starts_on, unique per group and day): members read, admins insert/update (name,
   starts_on)/delete. A season runs from its start day until the next one starts; games before the first are "earlier".
+- Category ratings (options.rating = 'attrs'): `rate_attr(p_code, p_player, p_attr, p_score)` (1–5, null removes; not
+  oneself; attr spd|sht|pas|tec|def|fit|gk_ref|gk_han|gk_pos|gk_dis), `my_attr_ratings(p_code)`, `attr_cards()` (members:
+  combined 1–5 per player and category, only with 3+ raters), `attr_rating_status()` (admins: how many names each rated).
+  `attr_ratings` has no table access. Combining (private.attr_scores = combine() in src/lib/attributes.js): only ratings
+  from before today, flat sheets ignored, 5+ raters drop the highest and lowest, then pulled toward the group's mean as
+  if 3 more average ratings were there. make_teams uses the mean of the field categories ((v − 1) × 25, 50 without).
 - Reading history: the API returns at most 1000 rows per request, so the app reads it page by page (`allRows`).
 - `set_options(p_patch jsonb) → jsonb` — admins only. Merges the patch into the group's options (null = remove the key,
   back to the default) and keeps every other key. Use this, never a whole-object update.

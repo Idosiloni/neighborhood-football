@@ -18,7 +18,7 @@ export const OPTIONS = {
   team_b: { values: TEAM_COLORS, default: 'orange' },
   // How much the players do (see LEVELS): how teams are rated, MVP votes, recording assists,
   // and signing up from the group's link with one tap (no personal link needed).
-  rating: { values: ['peers', 'admin', 'none'], default: 'peers' },
+  rating: { values: ['peers', 'admin', 'none', 'attrs'], default: 'peers' }, // attrs = by categories (the full card)
   mvp: { values: [true, false], default: true },
   assists: { values: [true, false], default: true },
   quick_signup: { values: [true, false], default: false },
@@ -29,6 +29,7 @@ export const OPTIONS = {
 export const LEVELS = {
   simple: { rating: 'admin', mvp: false, assists: false, quick_signup: true },
   standard: { rating: 'peers', mvp: true, assists: true, quick_signup: false },
+  advanced: { rating: 'attrs', mvp: true, assists: true, quick_signup: false },
 }
 export const LEVEL_KEYS = Object.keys(LEVELS.standard)
 

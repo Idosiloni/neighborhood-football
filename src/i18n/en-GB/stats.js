@@ -1,5 +1,7 @@
 // British English words that differ from American, as full keys: { 'ns.key': 'text' }.
 export default {
+  'stats.cats.def': 'Defence',
+  'stats.cats.long.def': 'Defence',
   'stats.table.title': 'Table',
   'stats.table.games': 'P',
   'stats.table.record': 'W-D-L',

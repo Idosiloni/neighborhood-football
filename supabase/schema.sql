@@ -1,4 +1,4 @@
--- Neighborhood football, schema version 7: many groups in one database, each with its own options and rules.
+-- Neighborhood football, schema version 8: many groups in one database, each with its own options and rules.
 -- Each group has its own players, game nights, matches, ratings and join link.
 -- The player who opens a group is its admin (and may make other players admins too).
 --
@@ -70,6 +70,20 @@ create table if not exists public.seasons (
   starts_on date not null,
   created_at timestamptz not null default now(),
   unique (group_id, starts_on)
+);
+
+-- Version 8: category ratings ("advanced"): every player rates the others 1–5 in each category
+-- (speed, shooting, passing, technique, defending, fitness; four more for goalkeepers), relative to
+-- the group. One standing value per rater, player and category. Private: only through functions;
+-- the cards show only the combined result (attr_cards), never who rated what.
+create table if not exists public.attr_ratings (
+  voter_id uuid not null references public.players on delete cascade,
+  player_id uuid not null references public.players on delete cascade,
+  group_id uuid not null references public.groups on delete cascade,
+  attr text not null check (attr in ('spd', 'sht', 'pas', 'tec', 'def', 'fit', 'gk_ref', 'gk_han', 'gk_pos', 'gk_dis')),
+  score int not null check (score between 1 and 5),
+  updated_at timestamptz not null default now(),
+  primary key (voter_id, player_id, attr)
 );
 
 create table if not exists public.nights (
@@ -246,7 +260,7 @@ as $$
     and not exists (select 1 from jsonb_object_keys(o) k where k not in (
       'lang', 'format', 'periods', 'break_minutes', 'extra_minutes', 'tie', 'team_a', 'team_b',
       'rating', 'mvp', 'assists', 'quick_signup'))
-    and (not o ? 'rating' or o->>'rating' in ('peers', 'admin', 'none'))
+    and (not o ? 'rating' or o->>'rating' in ('peers', 'admin', 'none', 'attrs'))
     and private.option_bool(o, 'mvp') and private.option_bool(o, 'assists') and private.option_bool(o, 'quick_signup')
     and (not o ? 'lang' or o->>'lang' in ('he', 'en'))
     and (not o ? 'format' or o->>'format' in ('rounds', 'game'))
@@ -427,7 +441,7 @@ $$;
 create or replace function public.schema_version()
 returns int
 language sql immutable security definer set search_path = ''
-as $$ select 7 $$;
+as $$ select 8 $$;
 
 -- New rows land in the caller's group unless the server sets it.
 alter table public.players alter column group_id set default public.my_group();
@@ -706,9 +720,11 @@ alter table public.matches enable row level security;
 alter table public.goals enable row level security;
 alter table public.mvp_votes enable row level security;
 alter table public.coach_ratings enable row level security;
+alter table public.attr_ratings enable row level security;
 
 revoke all on public.groups, public.players, public.admins, public.player_codes, public.ballots,
-  public.nights, public.attendance, public.matches, public.goals, public.mvp_votes, public.coach_ratings
+  public.nights, public.attendance, public.matches, public.goals, public.mvp_votes, public.coach_ratings,
+  public.attr_ratings
   from public, anon, authenticated;
 -- admins, ballots, mvp_votes and coach_ratings: no policies and no grants. Only the functions below touch them.
 
@@ -1077,6 +1093,53 @@ language sql immutable set search_path = ''
 as $$ select b.moved is null or b.moved > 0 or cardinality(b.ranking) < 3 $$;
 
 -- Rating of every active player of a group: unrounded, 50 without votes.
+-- The combined value of each player in each category, 1–5. Same steps as src/lib/attributes.js:
+-- - only ratings from before today (published once a day, so the timing doesn't tell who rated);
+-- - not about oneself, only active raters and players;
+-- - a rater who gave the same score to everyone in everything (3+ players) is left out;
+-- - 5+ raters: the highest and the lowest are dropped; then the mean, pulled toward the group's
+--   mean for that category as if 3 more average ratings were there (C = 3 when there is none).
+create or replace function private.attr_scores(p_group uuid)
+returns table (player_id uuid, attr text, value numeric, raters int)
+language sql stable set search_path = ''
+as $$
+  with base as (
+    select r.voter_id, r.player_id, r.attr, r.score
+    from public.attr_ratings r
+    join public.players v on v.id = r.voter_id and v.active and v.group_id = p_group
+    join public.players p on p.id = r.player_id and p.active and p.group_id = p_group
+    where r.group_id = p_group and r.voter_id <> r.player_id and r.updated_at < date_trunc('day', now())
+  ),
+  flat as (
+    select b.voter_id from base b group by b.voter_id
+    having count(distinct b.player_id) >= 3 and count(distinct b.score) = 1
+  ),
+  kept as (
+    select b.* from base b where b.voter_id not in (select f.voter_id from flat f)
+  ),
+  ranked as (
+    select k.*,
+           row_number() over (partition by k.player_id, k.attr order by k.score, k.voter_id) as lo,
+           row_number() over (partition by k.player_id, k.attr order by k.score desc, k.voter_id) as hi,
+           count(*) over (partition by k.player_id, k.attr) as n
+    from kept k
+  ),
+  centre as (
+    select r.player_id, r.attr, max(r.n)::int as n,
+           (case when max(r.n) >= 5 then max(r.n) - 2 else max(r.n) end)::int as used,
+           avg(r.score) filter (where r.n < 5 or (r.lo > 1 and r.hi > 1))::numeric as mean
+    from ranked r group by r.player_id, r.attr
+  ),
+  prior as (
+    select k.attr, avg(k.score)::numeric as c from kept k group by k.attr
+  )
+  select ce.player_id, ce.attr,
+         -- the ratings actually used (5+: two fewer), plus 3 imagined ones at the group's mean
+         round((ce.mean * ce.used + 3 * coalesce(pr.c, 3)) / (ce.used + 3), 3),
+         ce.n
+  from centre ce left join prior pr on pr.attr = ce.attr;
+$$;
+
 create or replace function private.player_scores(p_group uuid)
 returns table (player_id uuid, score numeric)
 language sql stable set search_path = ''
@@ -1107,6 +1170,9 @@ as $$
   select p.id,
          case (select m from mode)
            when 'admin' then coalesce((select (cr.stars - 1) * 25.0 from public.coach_ratings cr where cr.player_id = p.id), 50)
+           -- categories: the average of the player's published field categories, 1–5 → 0–100
+           when 'attrs' then coalesce((select (avg(a.value) - 1) * 25 from private.attr_scores(p_group) a
+                                       where a.player_id = p.id and a.raters >= 3 and a.attr not like 'gk\_%'), 50)
            when 'none' then 50
            else coalesce(avg(sc.s) * 100, 50)
          end
@@ -1726,6 +1792,78 @@ begin
   end if;
 end $$;
 
+-- ───────────── Category ratings (version 8) ─────────────
+
+-- A player rates another in one category, 1–5 (null = remove). Only active players of the same
+-- group, never oneself.
+create or replace function public.rate_attr(p_code text, p_player uuid, p_attr text, p_score int)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_voter uuid;
+  v_group uuid;
+begin
+  select p.id, p.group_id into v_voter, v_group
+  from public.player_codes c join public.players p on p.id = c.player_id and p.active
+  where c.code = lower(trim(p_code));
+  if v_voter is null then
+    raise exception 'invalid code';
+  end if;
+  if p_player = v_voter or not exists (select 1 from public.players p where p.id = p_player and p.group_id = v_group and p.active) then
+    raise exception 'not allowed';
+  end if;
+  if p_score is null then
+    delete from public.attr_ratings where voter_id = v_voter and player_id = p_player and attr = p_attr;
+  else
+    insert into public.attr_ratings (voter_id, player_id, group_id, attr, score) values (v_voter, p_player, v_group, p_attr, p_score)
+    on conflict (voter_id, player_id, attr) do update set score = excluded.score, updated_at = now();
+  end if;
+end $$;
+
+-- What this phone's owner gave (to fill in the rating screen).
+create or replace function public.my_attr_ratings(p_code text)
+returns table (player_id uuid, attr text, score int)
+language sql stable security definer set search_path = ''
+as $$
+  select r.player_id, r.attr, r.score
+  from public.attr_ratings r
+  join public.player_codes c on c.player_id = r.voter_id
+  join public.players v on v.id = r.voter_id and v.active
+  where c.code = lower(trim(p_code));
+$$;
+
+
+-- The published category values of the caller's group, for the cards (members only): only
+-- categories with 3 or more raters, never single ratings.
+create or replace function public.attr_cards()
+returns table (player_id uuid, attr text, value numeric, raters int)
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if not public.is_member() then
+    raise exception 'not allowed';
+  end if;
+  return query select a.player_id, a.attr, a.value, a.raters from private.attr_scores(public.my_group()) a where a.raters >= 3;
+end $$;
+
+-- Admins see who has rated and how many players (never the values), like the ranking.
+create or replace function public.attr_rating_status()
+returns table (player_id uuid, rated int)
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'not allowed';
+  end if;
+  return query
+  select p.id, count(distinct r.player_id)::int
+  from public.players p
+  left join public.attr_ratings r on r.voter_id = p.id
+  where p.group_id = public.my_group() and p.active
+  group by p.id;
+end $$;
+
 -- ───────────── Who may call what ─────────────
 
 do $$
@@ -1743,7 +1881,8 @@ begin
     'public.make_teams(uuid, uuid[])', 'public.suggest_rotation(uuid)', 'public.admin_ballot_status()', 'public.leave_group(text)',
     'public.vote_mvp(text, uuid, uuid)', 'public.mvp_tally()', 'public.my_mvp_votes(text)',
     'public.set_options(jsonb)', 'public.admin_stars()', 'public.set_stars(uuid, int)',
-    'public.quick_roster(text, date)', 'public.quick_signup(text, uuid, date, boolean)'
+    'public.quick_roster(text, date)', 'public.quick_signup(text, uuid, date, boolean)',
+    'public.rate_attr(text, uuid, text, int)', 'public.my_attr_ratings(text)', 'public.attr_cards()', 'public.attr_rating_status()'
   ] loop
     execute format('revoke execute on function %s from public', f);
     execute format('grant execute on function %s to anon, authenticated', f);

@@ -84,6 +84,7 @@ export default function Me({ edit = false }) {
       )}
       {ready && <InviteButton />}
       {ready && <CardBody id={me.id} />}
+      {opts.rating === 'attrs' && <a className="btn ghost" href="#/rate">📊 {t('stats.rate.cta')}</a>}
       {opts.rating === 'peers' && <a className="btn ghost" href={`#/v/${code}`}>🗳️ {me.ranking ? t('onboarding.me.updateRanking') : t('onboarding.me.rank')}</a>}
       {me.is_admin && <a className="btn ghost" href="#/admin"><Icon name="gear" size={18} /> {t('onboarding.me.manage')}</a>}
       <MyLink code={code} admin={me.is_admin} />

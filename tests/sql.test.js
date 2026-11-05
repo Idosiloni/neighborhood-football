@@ -85,9 +85,9 @@ test('schema: can be run again (third time) without errors', async () => {
   await db.exec(SCHEMA)
 })
 
-test('schema: schema_version() = 7 for anyone', async () => {
-  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 7)
-  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 7)
+test('schema: schema_version() = 8 for anyone', async () => {
+  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 8)
+  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 8)
 })
 
 test('schema: no table sends its rows over realtime (only content-free pings)', async () => {
@@ -1015,13 +1015,13 @@ test('join code: only the admin replaces it; the old link stops working', async 
   assert.ok(!(await join(fresh.toUpperCase(), 'Another')).error)
 })
 
-test('schema: running it again keeps groups and join codes; schema_version still 7', async () => {
+test('schema: running it again keeps groups and join codes; schema_version still 8', async () => {
   const jc = await joinCode()
   const groups = await count(db, 'select count(*)::int as n from public.groups')
   await db.exec(SCHEMA)
   assert.equal(await joinCode(), jc)
   assert.equal(await count(db, 'select count(*)::int as n from public.groups'), groups)
-  assert.equal((await one(db, 'select public.schema_version() as v')).v, 7)
+  assert.equal((await one(db, 'select public.schema_version() as v')).v, 8)
 })
 
 // ───────────── Several positions per player ─────────────
@@ -1252,7 +1252,7 @@ test('upgrade: v1 data (players, codes, ballots, ratings) survives the new schem
   assert.deepEqual((await one(up, 'select positions, can_gk from public.players where id = $1', [pid.d])), { positions: ['gk'], can_gk: true })
   assert.equal(await count(up, 'select count(*)::int as n from public.ballots where moved is null'), 0)
   assert.deepEqual((await one(up, 'select positions from public.players where id = $1', [pid.a])).positions, [])
-  assert.equal((await one(up, 'select public.schema_version() as v')).v, 7)
+  assert.equal((await one(up, 'select public.schema_version() as v')).v, 8)
   // groups from before options existed played in Hebrew, and keep it
   assert.deepEqual((await one(up, 'select options from public.groups')).options, { lang: 'he' })
   assert.equal(await count(up, 'select count(*)::int as n from public.groups'), 1)
@@ -1545,4 +1545,89 @@ test('upgrade: a version 6 database gets the seasons table, and running it again
   await up.query(`insert into public.seasons (group_id, name, starts_on) values ($1, 'S1', '2027-01-01')`, [g.id])
   await up.exec(SCHEMA)
   assert.equal(await count(up, 'select count(*)::int as n from public.seasons'), 1)
+})
+
+// ───────────── version 8: category ratings ─────────────
+
+const rateAttr = (voter, player, attr, score) => as(db, 'anon', 'select public.rate_attr($1, $2, $3, $4)', [C[voter], P[player], attr, score])
+// Ratings only count from the day after (published once a day); tests move them to yesterday.
+const publish = () => db.query(`update public.attr_ratings set updated_at = now() - interval '1 day'`)
+const cards = async (who = MEMBER) => (await as(db, who, 'select * from public.attr_cards()')).rows
+
+test('categories: rate others 1–5 per category; not yourself, not another group, nothing odd', async () => {
+  assert.ok(!(await rateAttr('p0', 'p1', 'spd', 4)).error)
+  assert.ok(!(await rateAttr('p0', 'p1', 'spd', 5)).error) // changes it
+  assert.ok((await rateAttr('p0', 'p0', 'spd', 5)).error)
+  assert.ok((await as(db, 'anon', 'select public.rate_attr($1, $2, $3, $4)', [C.p0, H.adminId, 'spd', 3])).error)
+  for (const [attr, score] of [['speed', 3], ['spd', 0], ['spd', 6]]) assert.ok((await rateAttr('p0', 'p2', attr, score)).error, `${attr} ${score}`)
+  assert.ok((await as(db, 'anon', 'select public.rate_attr($1, $2, $3, $4)', ['nope', P.p1, 'spd', 3])).error)
+  const mine = (await as(db, 'anon', 'select * from public.my_attr_ratings($1)', [C.p0])).rows
+  assert.deepEqual(mine.map((r) => [r.player_id, r.attr, r.score]), [[P.p1, 'spd', 5]])
+  assert.ok(!(await rateAttr('p0', 'p1', 'spd', null)).error) // removed
+  assert.deepEqual((await as(db, 'anon', 'select * from public.my_attr_ratings($1)', [C.p0])).rows, [])
+})
+
+test('categories: the ratings themselves are never readable; cards for members only, from 3 raters, published the next day', async () => {
+  for (const v of ['p2', 'p3', 'p4']) {
+    await rateAttr(v, 'p1', 'spd', 5)
+    await rateAttr(v, 'p5', 'spd', 1) // not a flat sheet: two different values
+  }
+  for (const who of [MEMBER, 'anon', 'other', 'admin']) {
+    const r = await as(db, who, 'select * from public.attr_ratings')
+    assert.ok(r.error || r.rows.length === 0, JSON.stringify(who))
+  }
+  assert.deepEqual(await cards(), []) // given today: not yet
+  await publish()
+  const c = await cards()
+  const p1 = c.find((x) => x.player_id === P.p1 && x.attr === 'spd')
+  const p5 = c.find((x) => x.player_id === P.p5 && x.attr === 'spd')
+  // 3 ratings of 5, pulled toward the group's mean (3) as if 3 more average ratings were there: (15 + 9) / 6 = 4
+  assert.equal(Number(p1.value), 4)
+  assert.equal(Number(p5.value), 2)
+  assert.equal(p1.raters, 3)
+  assert.ok((await as(db, 'anon', 'select * from public.attr_cards()')).error)
+  assert.ok((await as(db, 'other', 'select * from public.attr_cards()')).error)
+  assert.deepEqual((await as(db, { code: H.adminCode }, 'select * from public.attr_cards()')).rows, [])
+  // 2 raters only: not shown
+  await rateAttr('p2', 'p6', 'pas', 4)
+  await rateAttr('p3', 'p6', 'pas', 4)
+  await publish()
+  assert.ok(!(await cards()).some((x) => x.player_id === P.p6))
+  await db.query('delete from public.attr_ratings')
+})
+
+test('categories: 5+ raters drop the highest and lowest; a rater who gave everyone the same is left out', async () => {
+  const scores = { p1: 1, p2: 3, p3: 3, p4: 3, p5: 5 }
+  for (const [v, sc] of Object.entries(scores)) {
+    await rateAttr(v, 'p0', 'def', sc)
+    await rateAttr(v, 'p6', 'def', sc === 3 ? 2 : 4) // keeps these sheets from being flat
+  }
+  // p7 gives 4 to three players in everything: a flat sheet, ignored
+  for (const pl of ['p0', 'p6', 'p8']) await rateAttr('p7', pl, 'def', 4)
+  await publish()
+  const p0 = (await cards()).find((x) => x.player_id === P.p0 && x.attr === 'def')
+  assert.equal(p0.raters, 5) // p7 not counted
+  // trimmed: 3,3,3 (mean 3, 3 used), pulled toward the group's mean for "def" (all kept "def" ratings:
+  // p0's 1,3,3,3,5 and p6's 4,2,2,2,4 → 2.9): (3·3 + 3·2.9) / 6 = 2.95
+  assert.equal(Number(p0.value), 2.95)
+  await db.query('delete from public.attr_ratings')
+})
+
+test('categories: a group rating by categories makes teams from them (others 50); admins see who rated, not values', async () => {
+  for (const v of ['p2', 'p3', 'p4']) {
+    for (const a of ['spd', 'sht', 'pas', 'tec', 'def', 'fit']) await rateAttr(v, 'p1', a, 5)
+    await rateAttr(v, 'p5', 'spd', 1)
+  }
+  await publish()
+  await db.query(`update public.groups set options = '{"rating": "attrs"}' where id = $1`, [G.id])
+  const s = Object.fromEntries((await db.query('select * from private.player_scores($1)', [G.id])).rows.map((r) => [r.player_id, Number(r.score)]))
+  assert.ok(s[P.p1] > 70)
+  assert.ok(s[P.p5] < 50)
+  assert.equal(s[P.p6], 50)
+  const st = (await as(db, 'admin', 'select * from public.attr_rating_status()')).rows
+  assert.equal(st.find((r) => r.player_id === P.p2).rated, 2)
+  assert.deepEqual(Object.keys(st[0]).sort(), ['player_id', 'rated'])
+  assert.ok((await as(db, MEMBER, 'select * from public.attr_rating_status()')).error)
+  await db.query(`update public.groups set options = '{}' where id = $1`, [G.id])
+  await db.query('delete from public.attr_ratings')
 })

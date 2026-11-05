@@ -163,4 +163,30 @@ export default {
     mvp: '{count}× MVP',
     nightStreak: '{count} game days in a row',
   },
+  // Category ratings ("advanced") and the full card (version 8).
+  cats: {
+    spd: 'Speed', sht: 'Shooting', pas: 'Passing', tec: 'Dribbling', def: 'Defense', fit: 'Fitness',
+    gk_ref: 'Reflexes', gk_han: 'Handling', gk_pos: 'Positioning', gk_dis: 'Distribution',
+    long: {
+      spd: 'Speed', sht: 'Shooting and finishing', pas: 'Passing', tec: 'Ball control and dribbling', def: 'Defense', fit: 'Fitness and effort',
+      gk_ref: 'Shot-stopping and reflexes', gk_han: 'Handling', gk_pos: 'Positioning and coming out', gk_dis: 'Distribution',
+    },
+    goalkeeping: 'Goalkeeping',
+  },
+  rate: {
+    title: 'Rate by category',
+    sub: 'Compared with our group, in secret',
+    scale: { 1: 'A weak spot', 2: 'Below our average', 3: 'About our average', 4: 'Strong', 5: 'Among the best here' },
+    howTo: "Pick a category, then give each name 1–5. Tap again to clear. Skip anyone you don't know.",
+    progress: '{n} of {total} rated for {attr}',
+    secret: 'Nobody sees who rated what. Cards update once a day, and a category shows up after 3 or more people rate it.',
+    needLink: 'To rate, open the app with your personal link.',
+    failed: "Didn't save. Please try again.",
+    cta: 'Rate by category',
+    ctaText: "Everyone's ratings build each player's card",
+  },
+  fullCard: {
+    basedOn: { one: 'Based on 1 rating', other: 'Based on {count} ratings' },
+    missing: 'Not enough ratings for every category yet. Until then, the card rating comes from games.',
+  },
 }

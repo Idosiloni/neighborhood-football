@@ -19,6 +19,7 @@ import Welcome from './screens/Welcome'
 import CreateGroup from './screens/CreateGroup'
 import Hello from './screens/Hello'
 import QuickSignup from './screens/QuickSignup'
+import RateCategories from './screens/RateCategories'
 import Celebration from './components/Celebration'
 import { setGroupLanguage, t, useLocale } from './i18n'
 import { optionsOf } from './lib/options'
@@ -49,6 +50,8 @@ function Screen({ page, param }) {
       return <Me edit={param === 'edit'} />
     case 'place':
       return <Place />
+    case 'rate':
+      return <RateCategories />
     case 'in':
       return <QuickSignup joinCode={param} />
     case 'join':

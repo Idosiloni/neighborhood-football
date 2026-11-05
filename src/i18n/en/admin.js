@@ -128,18 +128,20 @@ export default {
   // How much the players do: a ready-made level, or each switch on its own.
   level: {
     title: 'How much should players do in the app?',
-    levels: { simple: 'Simple', standard: 'Standard', custom: 'Custom' },
+    levels: { simple: 'Simple', standard: 'Standard', advanced: 'Advanced', custom: 'Custom' },
     hints: {
       simple: "Players don't have to do anything: they sign up by tapping their name on the group's link, and the admins rate players and run the game.",
       standard: 'Everyone gets in with their personal link, ranks their friends and votes for MVP.',
+      advanced: 'Everyone rates everyone by category (speed, shooting, passing…), and each player gets a full card with numbers that everyone can see.',
       custom: 'Your own mix, set below.',
     },
     rating: 'How are players rated for picking teams?',
-    ratings: { peers: 'Players rank each other', admin: 'Admins, with stars', none: 'No ratings' },
+    ratings: { peers: 'Players rank each other', attrs: 'Players, by category', admin: 'Admins, with stars', none: 'No ratings' },
     ratingHints: {
       peers: 'Everyone puts everyone in order, in secret.',
       admin: 'Only admins rate, 1–5 stars, in the Ranking tab.',
       none: 'Teams are split by positions only.',
+      attrs: 'Everyone gets 1–5 in each category from everyone else. The cards with the numbers are visible to all.',
     },
     mvp: 'MVP vote after every game',
     assists: 'Record assists too',
@@ -169,5 +171,10 @@ export default {
     remove: 'Delete',
     confirmRemove: 'Delete "{name}"? The games themselves stay; they move to the season before it.',
     failed: "Couldn't start the season. Maybe one already starts that day?",
+  },
+  attrStatus: {
+    title: 'Who has rated by category',
+    hint: 'Only how many names each person rated. The scores themselves are secret, even from admins.',
+    rated: { zero: 'Not yet', one: '1 name', other: '{count} names' },
   },
 }
