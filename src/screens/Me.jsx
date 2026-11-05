@@ -17,6 +17,7 @@ import { GOAL_SOUNDS, goalSound, preview, setGoalSound, setSoundOn, soundOn } fr
 import { LOCALES, pickedLocale, setLocale, t } from '../i18n'
 import { setTextSize, TEXT_SIZES, textSize } from '../lib/textSize'
 import { useOptions } from '../lib/schedule'
+import Loading from '../components/Loading'
 
 export default function Me({ edit = false }) {
   const opts = useOptions() // which features this group uses
@@ -40,7 +41,7 @@ export default function Me({ edit = false }) {
     )
   }
 
-  if (me === undefined) return <main className="page"><PageHeader title={t('onboarding.me.title')} /><p className="center muted">{t('common.loading')}</p></main>
+  if (me === undefined) return <main className="page"><PageHeader title={t('onboarding.me.title')} /><Loading /></main>
 
   if (edit) {
     return (

@@ -9,6 +9,7 @@ import InstallHint from '../components/InstallHint'
 import { rulesSummary } from '../components/GameSettings'
 import { t, tx } from '../i18n'
 import { optionsOf } from '../lib/options'
+import Loading from '../components/Loading'
 
 // Right after joining a group: what this group is, when it plays, and what to do first.
 export default function Hello() {
@@ -19,7 +20,7 @@ export default function Hello() {
     return { me, players }
   }, [code])
 
-  if (!data?.me) return <main className="page"><p className="center muted">{t('common.loading')}</p></main>
+  if (!data?.me) return <Loading page />
 
   const { me, players } = data
   const meFull = players.find((p) => p.id === me.id) ?? me

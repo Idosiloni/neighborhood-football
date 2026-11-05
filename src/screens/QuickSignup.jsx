@@ -8,6 +8,7 @@ import { applyTeamColors } from '../lib/teamColors'
 import { myGroups } from '../lib/identity'
 import PageHeader from '../components/PageHeader'
 import Avatar from '../components/Avatar'
+import Loading from '../components/Loading'
 
 // "Who's coming?" from the group's link, for groups that allow it (options.quick_signup):
 // tap your name and you're on the list. No personal link, no joining, no password.
@@ -57,7 +58,7 @@ export default function QuickSignup({ joinCode = '' }) {
   }, [groupId])
 
   if (error && !data) return <main className="page"><p className="err center">{t('common.offline')}</p></main>
-  if (!data) return <main className="page"><p className="center muted">{t('common.loading')}</p></main>
+  if (!data) return <Loading page />
 
   const join = `#/join/${joinCode}`
   if (data.missing) {

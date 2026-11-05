@@ -24,6 +24,7 @@ import Celebration from './components/Celebration'
 import { setGroupLanguage, t, useLocale } from './i18n'
 import { optionsOf } from './lib/options'
 import { applyTeamColors } from './lib/teamColors'
+import Loading from './components/Loading'
 
 // Screens that work before this phone is in any group.
 const OPEN = new Set(['v', 'vote', 'join', 'new', 'in'])
@@ -107,7 +108,7 @@ function AppBody() {
     )
   }
 
-  if (session === undefined) return <main className="page"><p className="center muted">{t('common.loading')}</p></main>
+  if (session === undefined) return <Loading page delay={0} />
 
   const outside = session.me === null && !OPEN.has(page)
   // The vote screen has its own save bar at the bottom; outside a group there is nowhere to go;

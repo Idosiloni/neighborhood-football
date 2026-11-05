@@ -193,16 +193,19 @@ export function LevelFields({ value, onChange, disabled = false }) {
   )
   return (
     <>
-      <div className="field">
+      <div className="field" role="radiogroup" aria-label={t('admin.level.title')}>
         {t('admin.level.title')}
-        <div className="chips">
+        {/* Each level with one line on what the players will actually do. */}
+        <div className="level-cards">
           {Object.keys(LEVELS).map((l) => (
-            <button type="button" key={l} className={level === l ? 'on' : ''} aria-pressed={level === l} disabled={disabled}
-              onClick={() => onChange(LEVELS[l])}>{t(`admin.level.levels.${l}`)}</button>
+            <button type="button" key={l} role="radio" aria-checked={level === l} className={`level-card${level === l ? ' on' : ''}`}
+              disabled={disabled} onClick={() => onChange(LEVELS[l])}>
+              <strong>{t(`admin.level.levels.${l}`)}</strong>
+              <small>{t(`admin.level.hints.${l}`)}</small>
+            </button>
           ))}
-          {level === 'custom' && <button type="button" className="on" aria-pressed disabled>{t('admin.level.levels.custom')}</button>}
         </div>
-        <small className="muted">{t(`admin.level.hints.${level}`)}</small>
+        {level === 'custom' && <small className="muted">{t('admin.level.hints.custom')}</small>}
       </div>
       <Choice label={t('admin.level.rating')} options={['peers', 'attrs', 'admin', 'none']} value={value.rating}
         onChange={(r) => !disabled && onChange({ rating: r })} text={(r) => t(`admin.level.ratings.${r}`)} />

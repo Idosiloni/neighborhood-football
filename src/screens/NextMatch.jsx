@@ -13,13 +13,14 @@ import Icon from '../components/Icon'
 import Lineup from '../components/Lineup'
 import { writeManaging } from '../lib/managing'
 import { t } from '../i18n'
+import Loading from '../components/Loading'
 
 export default function NextMatch({ matchId }) {
   const ready = useSchemaReady()
   return (
     <main className="page">
-      <PageHeader title={t('match.nextMatch')} sub={t('match.nextSub')} back={`#/match/${matchId}`} />
-      {ready === false ? <NeedsUpdate /> : ready ? <Body matchId={matchId} /> : <p className="center muted">{t('common.loading')}</p>}
+      <PageHeader title={t('match.nextMatch')} back={`#/match/${matchId}`} />
+      {ready === false ? <NeedsUpdate /> : ready ? <Body matchId={matchId} /> : <Loading />}
     </main>
   )
 }
@@ -30,6 +31,8 @@ function Body({ matchId }) {
   const [view, setView] = useState('pitch')
   const [error, setError] = useState('')
   const [starting, setStarting] = useState(false)
+  const [mode, setMode] = useState(null) // rotate | same | shuffle
+  const [shuffling, setShuffling] = useState(false)
 
   const { data } = useLoad(async () => {
     const [match, players, suggestion] = await Promise.all([api.getMatch(matchId), api.listPlayers(), api.suggestRotation(matchId)])
@@ -37,14 +40,18 @@ function Body({ matchId }) {
     return { match, players, suggestion, later }
   }, [matchId])
 
+  // Everyone played last time and nobody new is waiting: the same teams again, by default.
+  // Otherwise the usual rotation (so late arrivals get in). Either way the others are one tap away.
   useEffect(() => {
-    if (data?.suggestion) {
-      const s = data.suggestion
-      setGroups({ a: s.team_a, b: s.team_b, bench: s.bench })
-    }
+    if (!data?.suggestion || mode) return
+    const s = data.suggestion
+    const played = new Set([...data.match.team_a, ...data.match.team_b])
+    const newcomers = [...s.team_a, ...s.team_b, ...s.bench].some((id) => !played.has(id))
+    pick((data.match.bench ?? []).length === 0 && !newcomers ? 'same' : 'rotate')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
-  if (!data || !groups) return <p className="center muted">{t('match.computing')}</p>
+  if (!data || !groups) return <Loading text={t('match.computing')} />
 
   const { match, players, suggestion, later } = data
   const byId = Object.fromEntries(players.map((p) => [p.id, p]))
@@ -61,6 +68,25 @@ function Body({ matchId }) {
     )
   }
 
+  function pick(next) {
+    const s = data.suggestion
+    setMode(next)
+    setError('')
+    if (next === 'rotate') return setGroups({ a: s.team_a, b: s.team_b, bench: s.bench })
+    // Everyone here tonight (the rotation's answer has them all).
+    const present = new Set([...s.team_a, ...s.team_b, ...s.bench])
+    const a = data.match.team_a.filter((id) => present.has(id))
+    const b = data.match.team_b.filter((id) => present.has(id))
+    const bench = [...present].filter((id) => !a.includes(id) && !b.includes(id))
+    if (next === 'same') return setGroups({ a, b, bench })
+    // A new balanced split of the same players; newcomers keep waiting.
+    setShuffling(true)
+    api.makeTeams(data.match.night_id, bench).then(
+      (x) => setGroups({ a: x.a, b: x.b, bench }),
+      () => setError(t('match.splitFailed')),
+    ).finally(() => setShuffling(false))
+  }
+
   const start = async () => {
     setStarting(true)
     try {
@@ -75,7 +101,19 @@ function Body({ matchId }) {
 
   return (
     <>
-      <div className="swap-summary card">
+      <div className="field">
+        <span className="muted small">{t('match.nextMode.title')}</span>
+        <div className="view-toggle three">
+          {['rotate', 'same', 'shuffle'].map((x) => (
+            <button key={x} className={mode === x ? 'on' : ''} aria-pressed={mode === x} disabled={shuffling} onClick={() => pick(x)}>
+              {t(`match.nextMode.${x}`)}
+            </button>
+          ))}
+        </div>
+        <small className="muted">{shuffling ? t('match.nextMode.shuffling') : t(`match.nextMode.${mode}Hint`)}</small>
+      </div>
+
+      {mode === 'rotate' && <div className="swap-summary card">
         <div>
           <h3>{t('match.leaving', { team: TEAM[loser].name })}</h3>
           <div className="face-row">
@@ -95,8 +133,8 @@ function Body({ matchId }) {
             ))}
           </div>
         </div>
-      </div>
-      <p className="muted small">{t('match.rotationNote')}</p>
+      </div>}
+      {mode === 'rotate' && <p className="muted small">{t('match.rotationNote')}</p>}
 
       <div className="view-toggle">
         <button className={view === 'pitch' ? 'on' : ''} onClick={() => setView('pitch')}>{t('match.viewPitch')}</button>
@@ -105,12 +143,12 @@ function Body({ matchId }) {
       {view === 'pitch' ? (
         <Lineup teamA={groups.a} teamB={groups.b} byId={byId} />
       ) : (
-        <TeamBoard groups={groups} playersById={byId} onChange={setGroups} editable={member} marks={marks} />
+        <TeamBoard groups={groups} playersById={byId} onChange={setGroups} editable={member} marks={mode === 'rotate' ? marks : {}} />
       )}
 
       {error && <p className="err">{error}</p>}
       {member && (
-        <button className="btn big" onClick={start} disabled={starting}>
+        <button className="btn big" onClick={start} disabled={starting || shuffling}>
           <Icon name="play" size={20} /> {t('match.startNum', { num: match.num + 1 })}
         </button>
       )}

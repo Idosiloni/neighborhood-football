@@ -42,6 +42,7 @@ export default {
   'match.startNum': 'Start match {num}',
   'match.markIn': 'On',
 
+  'match.nextMode.sameHint': 'The same teams as last match. Anyone who just arrived waits, and you can bring them on under "Swaps".',
   'match.mvp': 'Player of the match',
   'match.whoMvp': 'Who was player of the match?',
   'match.mvpHelp': 'Players from this match pick the player of the match here.',

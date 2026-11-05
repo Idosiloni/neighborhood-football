@@ -7,6 +7,7 @@ import { forgetSchedule } from '../../lib/schedule'
 import { setGroupLanguage, shortDate, t } from '../../i18n'
 import { optionsOf } from '../../lib/options'
 import { applyTeamColors } from '../../lib/teamColors'
+import Loading from '../../components/Loading'
 
 const RULE_KEYS = ['format', 'periods', 'break_minutes', 'extra_minutes', 'tie', 'team_a', 'team_b']
 
@@ -21,7 +22,7 @@ export default function GameTab({ group, reload: reloadGroup }) {
   const [draft, setDraft] = useState(null)
   const [status, setStatus] = useState('')
 
-  if (!data) return <p className="center muted">{t('common.loading')}</p>
+  if (!data) return <Loading />
   const s = draft ?? data.schedule
 
   const save = async () => {

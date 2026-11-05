@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../data'
 import { today, dayLabel } from '../lib/dates'
-import { useLoad, useLiveUpdates } from '../lib/hooks'
+import { useLoad, useLiveUpdates, usePendingToggles } from '../lib/hooks'
 import { useMember } from '../lib/member'
 import { useSchemaReady } from '../lib/schema'
 import { minPlayers, suggestBench } from '../lib/teams'
@@ -20,7 +20,8 @@ import Lineup from '../components/Lineup'
 import { play } from '../lib/sound'
 import { drawNight, drawTeams, shareImage } from '../lib/shareImages'
 import { currentGroup } from '../lib/identity'
-import { t } from '../i18n'
+import { compareNames, t } from '../i18n'
+import Loading from '../components/Loading'
 
 export default function Tonight() {
   const ready = useSchemaReady()
@@ -29,7 +30,7 @@ export default function Tonight() {
   return (
     <main className="page">
       <PageHeader title={t('match.tonight')} sub={dayLabel(day)} />
-      {ready === false ? <NeedsUpdate /> : ready ? <TonightBody day={day} /> : <p className="center muted">{t('common.loading')}</p>}
+      {ready === false ? <NeedsUpdate /> : ready ? <TonightBody day={day} /> : <Loading />}
     </main>
   )
 }
@@ -38,7 +39,6 @@ function TonightBody({ day }) {
   const member = useMember()
   const { team_size: teamSize } = useSchedule()
   const MIN_PLAYERS = minPlayers(teamSize)
-  const [busy, setBusy] = useState(false)
   const [builder, setBuilder] = useState(false)
   const [pasting, setPasting] = useState(false)
 
@@ -49,36 +49,40 @@ function TonightBody({ day }) {
   }, [day])
   useLiveUpdates(reload)
 
+  // Taps show at once and are saved behind the scenes (several names in a row, no waiting).
+  const latest = useRef(null)
+  const making = useRef(null)
+  latest.current = data
+  const { pending, set: setPresent, failed } = usePendingToggles(async (id, want) => {
+    // Several quick taps on a day with no list yet: the list is made once, not once per tap.
+    if (!latest.current?.night && !making.current) making.current = api.ensureNight(day).finally(() => (making.current = null))
+    const n = latest.current?.night ?? (await making.current)
+    await api.setPresent(n.id, id, want)
+  }, reload)
+
   const view = useMemo(() => {
     if (!data) return null
     const { players, night, attendance, history } = data
     const byId = Object.fromEntries(players.map((p) => [p.id, p]))
     const present = new Set(attendance.map((a) => a.player_id))
+    for (const [id, want] of Object.entries(pending)) want ? present.add(id) : present.delete(id)
     const matches = night ? history.matches.filter((m) => m.night_id === night.id).sort((x, y) => x.num - y.num) : []
     return { players, byId, present, matches, night, attendance, history }
-  }, [data])
+  }, [data, pending])
 
   if (error && !data) return <p className="err center">{t('common.offline')}</p>
-  if (!view) return <p className="center muted">{t('common.loading')}</p>
+  if (!view) return <Loading />
 
   const { players, byId, present, matches, night, attendance, history } = view
   const live = matches.find((m) => m.status === 'live')
   const last = matches.at(-1)
   const active = players.filter((p) => p.active)
-  // Who came first, in order of arrival; everyone else after them.
-  const arrival = new Map(attendance.map((a, i) => [a.player_id, i]))
-  const grid = [...active].sort((x, y) => (arrival.get(x.id) ?? 1e9) - (arrival.get(y.id) ?? 1e9))
+  // By name, so a name never moves when tapped (the order of arrival is kept for who waits first).
+  const grid = [...active].sort((x, y) => compareNames(x.name, y.name))
 
-  const toggle = async (id) => {
-    if (!member || busy) return
-    setBusy(true)
-    try {
-      const n = night ?? (await api.ensureNight(day))
-      await api.setPresent(n.id, id, !present.has(id))
-      await reload()
-    } finally {
-      setBusy(false)
-    }
+  const toggle = (id) => {
+    if (!member) return
+    setPresent(id, !present.has(id))
   }
 
   return (
@@ -125,10 +129,11 @@ function TonightBody({ day }) {
               </button>
             ))}
           </div>
+          {failed && <p className="err small">{t('common.failed')}</p>}
           {active.length === 0 && <p className="muted center">{t('match.noPlayers')}</p>}
 
           {member && !builder && (matches.length === 0 || last?.status === 'finished') && (
-            <button className="btn big" disabled={present.size < MIN_PLAYERS} onClick={() => setBuilder(true)}>
+            <button className="btn big" disabled={present.size < MIN_PLAYERS || Object.keys(pending).length > 0} onClick={() => setBuilder(true)}>
               {matches.length === 0 ? t('match.splitTeams') : t('match.splitAgain')}
             </button>
           )}
@@ -193,7 +198,10 @@ function LiveCard({ match, goals }) {
 
 function TeamBuilder({ night, attendance, byId, history, nextNum, teamSize, onCancel }) {
   const presentPlayers = attendance.filter((a) => byId[a.player_id]?.active).map((a) => ({ ...byId[a.player_id], night_id: night.id, arrived_at: a.arrived_at }))
-  const benchCount = Math.max(0, presentPlayers.length - teamSize * 2)
+  const extra = Math.max(0, presentPlayers.length - teamSize * 2)
+  // More than two full teams: some wait their turn, or everyone plays (bigger teams, no rotation).
+  const [everyone, setEveryone] = useState(false)
+  const benchCount = everyone ? 0 : extra
   const [groups, setGroups] = useState(null)
   const [dealt, setDealt] = useState(0) // each new split deals the players onto the pitch again
   const [view, setView] = useState('pitch') // pitch | edit
@@ -242,9 +250,25 @@ function TeamBuilder({ night, attendance, byId, history, nextNum, teamSize, onCa
         <button className="link-btn" onClick={onCancel}>{t('common.cancel')}</button>
       </div>
       {!groups ? (
-        <p className="center muted">{state === 'error' ? message : t('match.splitting')}</p>
+        state === 'error' ? <p className="center muted">{message}</p> : <Loading text={t('match.splitting')} />
       ) : (
         <>
+          {extra > 0 && (
+            <div className="view-toggle">
+              {[false, true].map((all) => (
+                <button key={String(all)} className={everyone === all ? 'on' : ''} aria-pressed={everyone === all}
+                  disabled={state === 'loading'} onClick={() => {
+                    if (all === everyone) return
+                    setEveryone(all)
+                    roll(all ? [] : suggestBench(presentPlayers, history.matches, extra))
+                  }}>
+                  {all
+                    ? t('match.playSize.all', { a: Math.ceil(presentPlayers.length / 2), b: Math.floor(presentPlayers.length / 2) })
+                    : t('match.playSize.wait', { size: teamSize, count: extra })}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="view-toggle">
             <button className={view === 'pitch' ? 'on' : ''} onClick={() => setView('pitch')}>{t('match.viewPitch')}</button>
             <button className={view === 'edit' ? 'on' : ''} onClick={() => setView('edit')}>{t('match.viewEdit')}</button>

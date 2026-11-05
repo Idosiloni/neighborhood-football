@@ -18,6 +18,7 @@ import { celebrate } from '../components/Celebration'
 import { play } from '../lib/sound'
 import { t } from '../i18n'
 import { useOptions } from '../lib/schedule'
+import Loading from '../components/Loading'
 
 // Short beep + vibration when the match changes phase or ends.
 function signal() {
@@ -69,7 +70,7 @@ export default function Match({ id }) {
       </main>
     )
   }
-  return ready ? <MatchBody id={id} /> : <main className="page"><p className="center muted">{t('common.loading')}</p></main>
+  return ready ? <MatchBody id={id} /> : <Loading page />
 }
 
 function MatchBody({ id }) {
@@ -153,7 +154,7 @@ function MatchBody({ id }) {
     return (
       <main className="page">
         <PageHeader title={t('match.title')} back="#/tonight" />
-        <p className="center muted">{data && !data.match ? t('match.notFound') : t('common.loading')}</p>
+        {data && !data.match ? <p className="center muted">{t('match.notFound')}</p> : <Loading />}
       </main>
     )
   }

@@ -3,7 +3,7 @@ import { api } from '../data'
 import { useLoad, useLiveUpdates } from '../lib/hooks'
 import { getMyCode } from '../lib/identity'
 import { useSchemaReady } from '../lib/schema'
-import { today, dayLabel } from '../lib/dates'
+import { today } from '../lib/dates'
 import { computeAwards, computeStats } from '../lib/stats'
 import { scoreOf } from '../lib/clock'
 import { TEAM } from '../lib/teamsMeta'
@@ -106,6 +106,8 @@ export default function Home() {
         </a>
       )}
 
+      {ready && <SignupCard />}
+
       {view?.toVote && opts.mvp && (
         <a className="card cta-card mvp-cta" href={`#/match/${view.toVote.id}`}>
           <div>
@@ -136,40 +138,41 @@ export default function Home() {
         </a>
       )}
 
-      {ready && <SignupCard />}
-
-      <div className="tile-grid">
-        <a className="tile tile-main" href="#/tonight">
-          <Icon name="pitch" size={28} />
-          <strong>{t('home.tonight')}</strong>
-          <span>
-            {view
-              ? view.present
-                ? t('home.tonightNow', { arrived: t('home.arrived', { count: view.present }), games: t('home.games', { count: view.played }) })
-                : t('home.tonightEmpty')
-              : dayLabel(day)}
-          </span>
-        </a>
-        <a className="tile" href="#/stats">
-          <Icon name="chart" size={24} />
-          <strong>{t('home.stats')}</strong>
-          <span>{t('home.statsText')}</span>
-        </a>
-        {opts.rating === 'attrs' && (
-          <a className="tile" href="#/rate">
-            <span className="tile-emoji">📊</span>
-            <strong>{t('stats.rate.cta')}</strong>
-            <span>{t('stats.rate.ctaText')}</span>
-          </a>
-        )}
-        {opts.rating === 'peers' && (
-          <a className="tile" href={code ? `#/v/${code}` : '#/vote'}>
-            <span className="tile-emoji">🗳️</span>
-            <strong>{t('home.ranking')}</strong>
-            <span>{me?.ranking ? t('home.rankingUpdate') : t('home.rankingSecret')}</span>
-          </a>
-        )}
-      </div>
+      {/* Only what the bottom bar doesn't already have: tonight while it's on, and rating. */}
+      {(view?.present > 0 || opts.rating === 'attrs' || opts.rating === 'peers') && (
+        <nav className="quick-links">
+          {view?.present > 0 && (
+            <a className="quick-link" href="#/tonight">
+              <Icon name="pitch" size={22} />
+              <span>
+                <strong>{t('home.tonight')}</strong>
+                <small>{t('home.tonightNow', { arrived: t('home.arrived', { count: view.present }), games: t('home.games', { count: view.played }) })}</small>
+              </span>
+              <Icon name="forward" size={18} />
+            </a>
+          )}
+          {opts.rating === 'attrs' && (
+            <a className="quick-link" href="#/rate">
+              <span className="quick-emoji" aria-hidden="true">📊</span>
+              <span>
+                <strong>{t('stats.rate.cta')}</strong>
+                <small>{t('stats.rate.ctaText')}</small>
+              </span>
+              <Icon name="forward" size={18} />
+            </a>
+          )}
+          {opts.rating === 'peers' && (
+            <a className="quick-link" href={code ? `#/v/${code}` : '#/vote'}>
+              <span className="quick-emoji" aria-hidden="true">🗳️</span>
+              <span>
+                <strong>{t('home.ranking')}</strong>
+                <small>{me?.ranking ? t('home.rankingUpdate') : t('home.rankingSecret')}</small>
+              </span>
+              <Icon name="forward" size={18} />
+            </a>
+          )}
+        </nav>
+      )}
 
       {view?.last && (
         <a className="card last-result" href={`#/match/${view.last.id}`}>

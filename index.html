@@ -13,10 +13,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@400;500;700&family=Karantina:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      /* Before the app starts: a ball rolling on a chalk line (the app's own is src/components/Loading.jsx). */
+      body { margin: 0; background: #f3f6f3; }
+      .splash { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; }
+      .splash-track { position: relative; width: 150px; height: 44px; border-bottom: 3px solid rgb(17 36 26 / 0.22); }
+      .splash-track svg { position: absolute; bottom: 2px; left: calc(50% - 17px); animation: splash-roll 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite; filter: drop-shadow(0 2px 2px rgb(17 36 26 / 0.25)); }
+      @keyframes splash-roll { 0%, 100% { transform: translateX(-56px) rotate(-180deg); } 50% { transform: translateX(56px) rotate(180deg); } }
+      @media (prefers-reduced-motion: reduce) { .splash-track svg { animation: none; } }
+    </style>
     <title>כדורגל שכונה</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="splash" aria-hidden="true"><div class="splash-track"><svg width="34" height="34" viewBox="-50 -50 100 100"><defs><clipPath id="splash-clip"><circle r="46"/></clipPath></defs><circle r="46" fill="#fff"/><g clip-path="url(#splash-clip)" fill="#11241a" stroke="#11241a" stroke-width="3" stroke-linejoin="round"><polygon points="0,-15 14.3,-4.6 8.8,12.1 -8.8,12.1 -14.3,-4.6"/><polygon points="0,-30 -12.4,-39 -7.6,-53.5 7.6,-53.5 12.4,-39"/><polygon points="28.5,-9.3 33.3,-23.8 48.5,-23.8 53.3,-9.3 40.9,-0.3"/><polygon points="17.6,24.3 32.9,24.3 37.6,38.8 25.3,47.8 12.9,38.8"/><polygon points="-17.6,24.3 -12.9,38.8 -25.3,47.8 -37.6,38.8 -32.9,24.3"/><polygon points="-28.5,-9.3 -40.9,-0.3 -53.3,-9.3 -48.5,-23.8 -33.3,-23.8"/><path fill="none" d="M0,-15V-30M14.3,-4.6L28.5,-9.3M8.8,12.1L17.6,24.3M-8.8,12.1L-17.6,24.3M-14.3,-4.6L-28.5,-9.3"/></g><circle r="46" fill="none" stroke="#11241a" stroke-width="4"/></svg></div></div></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

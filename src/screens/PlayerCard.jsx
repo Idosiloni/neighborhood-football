@@ -13,13 +13,14 @@ import NeedsUpdate from '../components/NeedsUpdate'
 import { positionsOf, positionsText } from '../lib/positions'
 import { usePhoto } from '../lib/photos'
 import { t } from '../i18n'
+import Loading from '../components/Loading'
 
 export default function PlayerCard({ id }) {
   const ready = useSchemaReady()
   return (
     <main className="page">
       <PageHeader title={t('stats.card.title')} back="#/stats" />
-      {ready === false ? <NeedsUpdate /> : ready ? <CardBody id={id} /> : <p className="center muted">{t('common.loading')}</p>}
+      {ready === false ? <NeedsUpdate /> : ready ? <CardBody id={id} /> : <Loading />}
     </main>
   )
 }
@@ -61,7 +62,7 @@ export function CardBody({ id }) {
 
   const [sharing, setSharing] = useState(false)
 
-  if (!view) return <p className="center muted">{t('common.loading')}</p>
+  if (!view) return <Loading />
   if (!view.player) return <p className="center muted">{t('stats.card.notFound')}</p>
 
   const { player, s, awards, h2h, now, full, byId } = view

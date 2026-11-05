@@ -6,6 +6,7 @@ import { skip, unplaced } from '../lib/placement'
 import PageHeader from '../components/PageHeader'
 import Avatar from '../components/Avatar'
 import { t, tx } from '../i18n'
+import Loading from '../components/Loading'
 
 // One new player at a time: tap the first player he is better than. Saved after each one.
 export default function Place() {
@@ -29,7 +30,7 @@ export default function Place() {
     return (
       <main className="page">
         <PageHeader title={t('onboarding.place.newPlayer')} back="#/" />
-        <p className="center muted">{data && !data.me ? t('onboarding.place.needJoin') : t('common.loading')}</p>
+        {data && !data.me ? <p className="center muted">{t('onboarding.place.needJoin')}</p> : <Loading />}
       </main>
     )
   }

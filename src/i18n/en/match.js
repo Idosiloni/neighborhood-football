@@ -102,7 +102,6 @@ export default {
   markPresent: 'Check them in',
 
   // ── the next match (NextMatch.jsx) ──
-  nextSub: 'Winners stay on, the bench comes in',
   computing: "Working out who's out and who's in…",
   laterStarted: 'Game {num} has already started',
   toMatch: 'Go to game {num}',
@@ -112,6 +111,23 @@ export default {
   nobodyLeaving: 'Nobody (no one on the bench)',
   rotationNote: "Whoever has played the most games in a row goes out, and a goalkeeper-only player stays. Not right? Tap to swap.",
   startNum: 'Start game {num}',
+
+  // ── how the next match is made (NextMatch.jsx) ──
+  nextMode: {
+    title: 'What next?',
+    rotate: 'Rotate',
+    same: 'Same teams',
+    shuffle: 'New teams',
+    rotateHint: 'Winners stay on, the bench comes in.',
+    sameHint: 'The same teams as last game. Anyone who just arrived waits, and you can bring them in under "Swaps".',
+    shuffleHint: 'A fresh, balanced split of everyone playing.',
+    shuffling: 'Shuffling…',
+  },
+  // More players than two full teams: some wait, or everyone plays (Tonight.jsx).
+  playSize: {
+    wait: { one: '{size} v {size}, 1 on the bench', other: '{size} v {size}, {count} on the bench' },
+    all: 'Everyone plays: {a} v {b}',
+  },
 
   // ── team board, lineup ──
   bench: 'Bench',

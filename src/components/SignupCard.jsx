@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { api } from '../data'
-import { useLoad, useLiveUpdates, useTicker } from '../lib/hooks'
+import { useLoad, useLiveUpdates, usePendingToggles, useTicker } from '../lib/hooks'
 import { play } from '../lib/sound'
 import { getMyCode } from '../lib/identity'
 import { gameLabel, nextGameDay, today } from '../lib/dates'
@@ -21,7 +21,6 @@ export default function SignupCard() {
   const opts = useOptions()
   const day = nextGameDay(new Date(), schedule)
   const code = getMyCode()
-  const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const { data, reload } = useLoad(async () => {
@@ -36,11 +35,28 @@ export default function SignupCard() {
   }, [day, code])
   useLiveUpdates(reload)
 
+  // "I'm in" shows at once and is saved behind the scenes; quick taps send only the last choice.
+  const latest = useRef(null)
+  const making = useRef(null)
+  latest.current = data
+  const { pending, set, failed } = usePendingToggles(async (playerId, want) => {
+    // Several quick taps on a day with no list yet: the list is made once, not once per tap.
+    if (!latest.current?.night && !making.current) making.current = api.ensureNight(day).finally(() => (making.current = null))
+    const night = latest.current?.night ?? (await making.current)
+    await api.setPresent(night.id, playerId, want)
+  }, reload)
+
   if (!data) return null
 
   const byId = Object.fromEntries(data.players.map((p) => [p.id, p]))
-  const list = data.attendance.map((a) => byId[a.player_id]).filter((p) => p?.active)
   const me = data.me
+  let list = data.attendance.map((a) => byId[a.player_id]).filter((p) => p?.active)
+  // What this phone just tapped, until the server has it.
+  if (me && me.id in pending) {
+    const there = list.some((p) => p.id === me.id)
+    if (pending[me.id] && !there && byId[me.id]) list = [...list, byId[me.id]]
+    if (!pending[me.id] && there) list = list.filter((p) => p.id !== me.id)
+  }
   const imIn = me && list.some((p) => p.id === me.id)
   const isToday = day === today()
   const full = schedule.team_size * 2
@@ -55,16 +71,9 @@ export default function SignupCard() {
     )
   }
 
-  const toggle = async () => {
-    setBusy(true)
-    try {
-      const night = data.night ?? (await api.ensureNight(day))
-      await api.setPresent(night.id, me.id, !imIn)
-      if (!imIn) play('pop')
-      await reload()
-    } finally {
-      setBusy(false)
-    }
+  const toggle = () => {
+    if (!imIn) play('pop')
+    set(me.id, !imIn)
   }
 
   // "Who's coming?" for the group's WhatsApp: with one-tap sign-up, a link that needs nothing;
@@ -97,6 +106,15 @@ export default function SignupCard() {
         </span>
       </div>
       <Countdown day={day} kickoff={schedule.kickoff} />
+      {/* Above the list, so it stays put when the list grows. */}
+      {me ? (
+        <button className={`btn big signup-btn${imIn ? ' ghost' : ''}`} onClick={toggle} aria-pressed={Boolean(imIn)}>
+          {imIn ? t('home.signup.out') : t('home.signup.in')}
+        </button>
+      ) : (
+        <a className="btn ghost" href="#/join">{t('home.signup.joinFirst')}</a>
+      )}
+      {failed && <p className="err small">{t('common.failed')}</p>}
 
       {list.length === 0 ? (
         <p className="muted">{t('home.signup.empty')}</p>
@@ -113,13 +131,6 @@ export default function SignupCard() {
         </ol>
       )}
 
-      {me ? (
-        <button className={`btn big${imIn ? ' ghost' : ''}`} onClick={toggle} disabled={busy}>
-          {busy ? '…' : imIn ? t('home.signup.out') : t('home.signup.in')}
-        </button>
-      ) : (
-        <a className="btn ghost" href="#/join">{t('home.signup.joinFirst')}</a>
-      )}
       {me && data.joinCode && (
         <a className="btn small wa" href={`https://wa.me/?text=${encodeURIComponent(askMessage())}`} target="_blank" rel="noreferrer">
           📣 {t('home.signup.ask')}

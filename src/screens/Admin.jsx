@@ -6,6 +6,7 @@ import RankingTab from './admin/RankingTab'
 import GameTab from './admin/GameTab'
 import PageHeader from '../components/PageHeader'
 import { t } from '../i18n'
+import Loading from '../components/Loading'
 
 // Tab names are in admin.tabs.
 const TABS = ['players', 'links', 'ranking', 'game']
@@ -27,7 +28,7 @@ export default function Admin() {
     if (admin) reload()
   }, [admin])
 
-  if (admin === undefined) return <main className="page"><p className="center">{t('common.loading')}</p></main>
+  if (admin === undefined) return <Loading page />
   if (!admin) {
     return (
       <main className="page">

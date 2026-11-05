@@ -8,6 +8,7 @@ import PageHeader from '../components/PageHeader'
 import Avatar from '../components/Avatar'
 import NeedsUpdate from '../components/NeedsUpdate'
 import FormDots from '../components/FormDots'
+import Loading from '../components/Loading'
 
 // Labels come from stats.boards.<key>, read when shown.
 const BOARDS = [
@@ -22,7 +23,7 @@ export default function Stats() {
   return (
     <main className="page">
       <PageHeader title={t('stats.title')} sub={t('stats.sub')} />
-      {ready === false ? <NeedsUpdate /> : ready ? <StatsBody /> : <p className="center muted">{t('common.loading')}</p>}
+      {ready === false ? <NeedsUpdate /> : ready ? <StatsBody /> : <Loading />}
     </main>
   )
 }
@@ -58,7 +59,7 @@ function StatsBody() {
     return { stats, awards: computeAwards(stats), byId: Object.fromEntries(data.players.map((p) => [p.id, p])) }
   }, [data, period])
 
-  if (!view) return <p className="center muted">{t('common.loading')}</p>
+  if (!view) return <Loading />
   const { stats, awards, byId } = view
 
   // Seasons: the current one, the earlier ones (newest first), and all time.

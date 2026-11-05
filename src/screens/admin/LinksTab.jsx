@@ -4,6 +4,7 @@ import Avatar from '../../components/Avatar'
 import Icon from '../../components/Icon'
 import InviteCard from '../../components/InviteCard'
 import { t } from '../../i18n'
+import Loading from '../../components/Loading'
 
 const linkFor = (code) => `${window.location.origin}${window.location.pathname}#/v/${code}`
 
@@ -20,7 +21,7 @@ export default function LinksTab({ players, group }) {
   }, [players])
 
   if (error) return <p className="err">{t('admin.links.loadFailed', { error })}</p>
-  if (!codes) return <p className="center">{t('common.loading')}</p>
+  if (!codes) return <Loading />
 
   const copy = async (p) => {
     await navigator.clipboard.writeText(messageFor(p.name, codes[p.id], group?.name))
@@ -37,15 +38,17 @@ export default function LinksTab({ players, group }) {
   return (
     <section className="stack">
       <InviteCard canRenew />
-      <h2 className="section-title">{t('admin.links.title')}</h2>
-      <p className="muted small">{t('admin.links.help')}</p>
+      {/* Rarely needed, so folded away: resending someone their personal link. */}
+      <details className="card fold">
+        <summary><strong>{t('admin.links.lostTitle')}</strong></summary>
+        <p className="muted small">{t('admin.links.help')}</p>
       <ul className="player-list">
         {players.filter((p) => p.active).map((p) => (
           <li key={p.id} className="link-row">
             <Avatar player={p} size={40} />
             <span className="rank-name">
               {p.name}
-              <small className="personal-code" dir="ltr">{codes[p.id] ?? t('admin.links.noCode')}</small>
+              {!codes[p.id] && <small className="muted">{t('admin.links.noCode')}</small>}
             </span>
             <span className="link-actions">
               <a className="wa-soft" href={`https://wa.me/?text=${encodeURIComponent(messageFor(p.name, codes[p.id], group?.name))}`} target="_blank" rel="noreferrer">
@@ -59,6 +62,7 @@ export default function LinksTab({ players, group }) {
           </li>
         ))}
       </ul>
+      </details>
     </section>
   )
 }

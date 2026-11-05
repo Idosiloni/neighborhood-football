@@ -7,6 +7,7 @@ import { FIELD_ATTRS, GK_ATTRS } from '../lib/attributes'
 import { compareNames, t } from '../i18n'
 import PageHeader from '../components/PageHeader'
 import Avatar from '../components/Avatar'
+import Loading from '../components/Loading'
 
 // Rating by category: pick a category, give each name 1–5 (compared with the group). Every tap
 // is saved right away; tapping the same score again clears it. Goalkeeping is rated only for
@@ -37,7 +38,7 @@ export default function RateCategories() {
       </main>
     )
   }
-  if (!data) return <main className="page"><PageHeader title={t('stats.rate.title')} back="#/" /><p className="center muted">{t('common.loading')}</p></main>
+  if (!data) return <main className="page"><PageHeader title={t('stats.rate.title')} back="#/" /><Loading /></main>
 
   const others = data.players.filter((p) => p.active && p.id !== data.me?.id).sort((a, b) => compareNames(a.name, b.name))
   const keepers = others.filter((p) => positionsOf(p).includes('gk'))

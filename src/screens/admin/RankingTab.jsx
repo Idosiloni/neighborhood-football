@@ -3,6 +3,7 @@ import { api } from '../../data'
 import Avatar from '../../components/Avatar'
 import { compareNames, listOf, t, tx } from '../../i18n'
 import { useOptions } from '../../lib/schedule'
+import Loading from '../../components/Loading'
 
 // What the admin sees here depends on how the group rates: the players' ballots, the admins' own
 // stars, or nothing (teams by positions only).
@@ -20,7 +21,7 @@ function AttrStatus({ players }) {
   useEffect(() => {
     api.attrRatingStatus().then(setRows, () => setRows([]))
   }, [players])
-  if (!rows) return <p className="center">{t('common.loading')}</p>
+  if (!rows) return <Loading />
   const byId = new Map(players.map((p) => [p.id, p]))
   const list = rows.filter((r) => byId.has(r.player_id)).sort((a, b) => b.rated - a.rated || compareNames(byId.get(a.player_id).name, byId.get(b.player_id).name))
   return (
@@ -51,7 +52,7 @@ function StarRatings({ players }) {
   }, [players])
 
   if (error) return <p className="err">{t('stats.ranking.loadFailed')}</p>
-  if (!stars) return <p className="center">{t('common.loading')}</p>
+  if (!stars) return <Loading />
 
   const active = players.filter((p) => p.active).sort((a, b) => compareNames(a.name, b.name))
   const set = async (id, value) => {
@@ -100,7 +101,7 @@ function PeerRanking({ players }) {
   }, [players])
 
   if (error) return <p className="err">{t('stats.ranking.loadFailed')}</p>
-  if (!rows) return <p className="center">{t('common.loading')}</p>
+  if (!rows) return <Loading />
 
   const byId = new Map(players.map((p) => [p.id, p]))
   const list = rows

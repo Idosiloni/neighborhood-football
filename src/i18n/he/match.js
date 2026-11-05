@@ -106,7 +106,6 @@ export default {
   markPresent: 'סימון הגעה',
 
   // ── the next match (NextMatch.jsx) ──
-  nextSub: 'המנצחת נשארת, הממתינים נכנסים',
   computing: 'מחשב מי יוצא ומי נכנס…',
   laterStarted: 'משחק {num} כבר התחיל',
   toMatch: 'למשחק {num}',
@@ -116,6 +115,23 @@ export default {
   nobodyLeaving: 'אף אחד (אין ממתינים)',
   rotationNote: 'יוצאים מי ששיחקו הכי הרבה ברצף, ושוער קבוע נשאר. לא מתאים? מחליפים בלחיצה.',
   startNum: 'התחלת משחק {num}',
+
+  // ── how the next match is made (NextMatch.jsx) ──
+  nextMode: {
+    title: 'איך ממשיכים?',
+    rotate: 'מתחלפים',
+    same: 'אותן קבוצות',
+    shuffle: 'חלוקה חדשה',
+    rotateHint: 'המנצחת נשארת, הממתינים נכנסים.',
+    sameHint: 'אותן קבוצות כמו במשחק הקודם. מי שהגיע עכשיו מחכה, ואפשר להכניס בלשונית "החלפות".',
+    shuffleHint: 'חלוקה מאוזנת מחדש של מי שמשחק.',
+    shuffling: 'מחלקים מחדש…',
+  },
+  // More players than two full teams: some wait, or everyone plays (Tonight.jsx).
+  playSize: {
+    wait: { one: '{size} נגד {size}, אחד מחכה', two: '{size} נגד {size}, שניים מחכים', other: '{size} נגד {size}, {count} מחכים' },
+    all: 'כולם משחקים: {a} נגד {b}',
+  },
 
   // ── team board, lineup ──
   bench: 'ממתינים',

@@ -11,6 +11,7 @@ import ProfileForm from '../components/ProfileForm'
 import NeedsUpdate from '../components/NeedsUpdate'
 import Avatar from '../components/Avatar'
 import { t, setGroupLanguage } from '../i18n'
+import Loading from '../components/Loading'
 
 // The server's error keys and their texts (onboarding.errors.*).
 const ERRORS = {
@@ -78,7 +79,7 @@ function JoinWithCode({ joinCode }) {
     )
   }
   if (error && !data) return <main className="page"><PageHeader title={t('onboarding.join.short')} back="#/" /><p className="err center">{t('common.offline')}</p></main>
-  if (!data) return <main className="page"><PageHeader title={t('onboarding.join.short')} /><p className="center muted">{t('common.loading')}</p></main>
+  if (!data) return <main className="page"><PageHeader title={t('onboarding.join.short')} /><Loading /></main>
 
   if (!data.group) {
     return (

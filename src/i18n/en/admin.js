@@ -2,7 +2,7 @@
 // (also used when opening a group). American English; en-GB/admin.js has the British differences.
 export default {
   title: 'Admin',
-  tabs: { players: 'Players', links: 'Links', ranking: 'Ranking', game: 'Group' },
+  tabs: { players: 'Players', links: 'Invite', ranking: 'Ranking', game: 'Group' },
   lockedTitle: 'Only group admins can come in here',
   lockedText: 'Whoever started the group is its admin, and can make other players admins too.',
   sub: '{group} · Only admins see this screen',
@@ -71,7 +71,8 @@ export default {
 
   links: {
     title: 'Personal links',
-    help: 'Send each player their link in a private message: whoever has the link ranks as that player. Leaked? ↻ makes a new code.',
+    lostTitle: 'Someone got a new phone or lost their link?',
+    help: "The personal link is what tells the app who each player is (there are no passwords). Most players get it by themselves when they join. Here you can send it again, in a private message. Did it leak to someone else? ↻ makes a new link, and the old one stops working.",
     message: "Hi {name}! ⚽ Here's your personal link for {group}.\nIt's just for you, so please don't pass it on.\n{link}",
     theGroup: 'the group',
     loadFailed: "Couldn't load the personal codes: {error}",
@@ -128,12 +129,12 @@ export default {
   // How much the players do: a ready-made level, or each switch on its own.
   level: {
     title: 'How much should players do in the app?',
-    levels: { simple: 'Simple', standard: 'Standard', advanced: 'Advanced', custom: 'Custom' },
+    levels: { simple: 'Basic', standard: 'Standard', advanced: 'Advanced', custom: 'Custom' },
     hints: {
-      simple: "Players don't have to do anything: they sign up by tapping their name on the group's link, and the admins rate players and run the game.",
-      standard: 'Everyone gets in with their personal link, ranks their friends and votes for MVP.',
-      advanced: 'Everyone rates everyone by category (speed, shooting, passing…), and each player gets a full card with numbers that everyone can see.',
-      custom: 'Your own mix, set below.',
+      simple: "Easiest for players: they sign up by tapping their name, and that's it. The admins rate players and run the games.",
+      standard: "Everyone gets in with a personal link, secretly ranks who's best, and votes for MVP after a game.",
+      advanced: 'Everyone scores everyone by category (speed, shooting, passing…). That builds a card with numbers for each player, and the teams.',
+      custom: "Your own mix: the settings below don't match any level.",
     },
     rating: 'How are players rated for picking teams?',
     ratings: { peers: 'Players rank each other', attrs: 'Players, by category', admin: 'Admins, with stars', none: 'No ratings' },
