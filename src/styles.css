@@ -1345,3 +1345,19 @@ html[data-text] .st-row { grid-template-columns: 1.4rem minmax(0, 1fr) 2rem 3.4r
 .request-admin { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
 .request-admin p { margin: 0; }
 .row-btns { display: flex; gap: 8px; }
+
+/* Rating by category, player by player */
+.rate-player { gap: 14px; }
+.rate-who { display: flex; align-items: center; gap: 12px; }
+.rate-who .stack { flex: 1; min-width: 0; }
+.rate-name { font-size: 1.2rem; }
+.rate-preview { min-width: 3.2rem; padding: 4px 8px; border-radius: 12px; text-align: center; font-family: var(--display); font-size: 2rem; line-height: 1;
+  background: linear-gradient(160deg, #f7dc7a, #b8892a); color: #2b1f05; }
+.rate-preview.empty { background: var(--sunken); color: var(--muted); }
+.rate-quick { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; background: var(--grass-soft); }
+.rate-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.rate-chips.words { width: 100%; }
+.rate-chips.words button { flex: 1; width: auto; min-width: 0; padding: 0 2px; font-size: 0.8rem; }
+.rate-chips button { min-width: 2.6rem; }
+.rate-nav { justify-content: space-between; }
+.rate-nav .btn { flex: 1; }

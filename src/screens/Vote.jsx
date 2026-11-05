@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { api } from '../data'
 import RankList from '../components/RankList'
 import { setMyCode } from '../lib/identity'
+import { optionsOf } from '../lib/options'
+import { forgetSchedule } from '../lib/schedule'
+import { go } from '../lib/router'
 import PageHeader from '../components/PageHeader'
 import { play } from '../lib/sound'
 import { t } from '../i18n'
@@ -28,6 +31,11 @@ export default function Vote({ code }) {
       .then(async (v) => {
         if (!v) return setVoter(null)
         setMyCode(code, v.group) // this phone now belongs to them: they can mark attendance and run matches
+        forgetSchedule()
+        // The personal link ranks players only in groups that rate that way; other groups open
+        // their welcome (which leads to rating by categories, or just home).
+        const group = await api.getGroup().catch(() => null)
+        if (group && optionsOf(group).rating !== 'peers') return go('/hello')
         const players = await api.listPlayers()
         setVoter(v)
         const list = startingOrder(players, v)
