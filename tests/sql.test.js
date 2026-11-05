@@ -85,9 +85,9 @@ test('schema: can be run again (third time) without errors', async () => {
   await db.exec(SCHEMA)
 })
 
-test('schema: schema_version() = 9 for anyone', async () => {
-  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 9)
-  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 9)
+test('schema: schema_version() = 10 for anyone', async () => {
+  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 10)
+  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 10)
 })
 
 test('schema: no table sends its rows over realtime (only content-free pings)', async () => {
@@ -1015,13 +1015,13 @@ test('join code: only the admin replaces it; the old link stops working', async 
   assert.ok(!(await join(fresh.toUpperCase(), 'Another')).error)
 })
 
-test('schema: running it again keeps groups and join codes; schema_version still 9', async () => {
+test('schema: running it again keeps groups and join codes; schema_version still 10', async () => {
   const jc = await joinCode()
   const groups = await count(db, 'select count(*)::int as n from public.groups')
   await db.exec(SCHEMA)
   assert.equal(await joinCode(), jc)
   assert.equal(await count(db, 'select count(*)::int as n from public.groups'), groups)
-  assert.equal((await one(db, 'select public.schema_version() as v')).v, 9)
+  assert.equal((await one(db, 'select public.schema_version() as v')).v, 10)
 })
 
 // ───────────── Several positions per player ─────────────
@@ -1252,7 +1252,7 @@ test('upgrade: v1 data (players, codes, ballots, ratings) survives the new schem
   assert.deepEqual((await one(up, 'select positions, can_gk from public.players where id = $1', [pid.d])), { positions: ['gk'], can_gk: true })
   assert.equal(await count(up, 'select count(*)::int as n from public.ballots where moved is null'), 0)
   assert.deepEqual((await one(up, 'select positions from public.players where id = $1', [pid.a])).positions, [])
-  assert.equal((await one(up, 'select public.schema_version() as v')).v, 9)
+  assert.equal((await one(up, 'select public.schema_version() as v')).v, 10)
   // groups from before options existed played in Hebrew, and keep it
   assert.deepEqual((await one(up, 'select options from public.groups')).options, { lang: 'he' })
   assert.equal(await count(up, 'select count(*)::int as n from public.groups'), 1)
@@ -1765,4 +1765,25 @@ test('join requests: ask a listed group, the admin lets in or says no, the phone
   await as(ndb, 'anon', 'select public.request_join($1, $2, $3)', [NG.id, 'tok3-' + 'x'.repeat(20), 'Avi'])
   const avi = (await as(ndb, 'admin', 'select * from public.admin_requests()')).rows[0]
   assert.match((await as(ndb, { code: other.adminCode }, 'select public.answer_request($1, true)', [avi.id])).error, /not found/)
+})
+
+test('delete_me: name, photo, code and ratings are gone; past matches keep an anonymous player; alone = the group goes', async () => {
+  const d = await nPlayer('ToDelete')
+  await ndb.query(`update public.players set photo = 'data:x', nickname = 'nick' where id = $1`, [d.id])
+  await ndb.query('insert into public.push_subs (player_id, endpoint, p256dh, auth) values ($1, $2, $3, $4)', [d.id, 'https://push.example/del', 'p', 'a'])
+  const na = (await one(ndb, `select id from public.players where name = 'na'`)).id
+  await ndb.query(`insert into public.attr_ratings (voter_id, player_id, group_id, attr, score) values ($1, $2, $3, 'spd', 4), ($2, $1, $3, 'spd', 2)`, [d.id, na, NG.id])
+  assert.match((await as(ndb, 'anon', 'select public.delete_me($1)', ['nope'])).error, /invalid code/)
+  assert.ok(!(await as(ndb, 'anon', 'select public.delete_me($1)', [d.code])).error)
+  const row = await one(ndb, 'select name, photo, nickname, active from public.players where id = $1', [d.id])
+  assert.deepEqual(row, { name: '—', photo: null, nickname: null, active: false })
+  assert.equal(await count(ndb, 'select count(*)::int as n from public.player_codes where player_id = $1', [d.id]), 0)
+  assert.equal(await count(ndb, 'select count(*)::int as n from public.attr_ratings where voter_id = $1 or player_id = $1', [d.id]), 0)
+  assert.equal(await count(ndb, 'select count(*)::int as n from public.push_subs where player_id = $1', [d.id]), 0)
+  assert.equal((await as(ndb, 'anon', 'select * from public.voter_by_code($1)', [d.code])).rows.length, 0)
+  // The last admin of a group with others can't; alone in a group, the group goes.
+  assert.match((await as(ndb, 'anon', 'select public.delete_me($1)', [NG.adminCode])).error, /last admin/)
+  const solo = await newGroup(ndb, 'Solo', { adminName: 'only', main: false })
+  assert.ok(!(await as(ndb, 'anon', 'select public.delete_me($1)', [solo.adminCode])).error)
+  assert.equal(await count(ndb, 'select count(*)::int as n from public.groups where id = $1', [solo.id]), 0)
 })

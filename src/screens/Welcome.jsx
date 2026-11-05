@@ -66,6 +66,7 @@ export default function Welcome({ invalid = false }) {
       </section>
 
       <a className="admin-entry" href="#/vote">{t('onboarding.welcome.personalCode')}</a>
+      <a className="admin-entry" href="/privacy.html">{t('onboarding.privacy')}</a>
       <InstallHint />
     </main>
   )

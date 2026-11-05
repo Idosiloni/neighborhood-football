@@ -1,4 +1,4 @@
--- Neighborhood football, schema version 9: many groups in one database, each with its own options and rules.
+-- Neighborhood football, schema version 10: many groups in one database, each with its own options and rules.
 -- Each group has its own players, game nights, matches, ratings and join link.
 -- The player who opens a group is its admin (and may make other players admins too).
 --
@@ -441,7 +441,7 @@ $$;
 create or replace function public.schema_version()
 returns int
 language sql immutable security definer set search_path = ''
-as $$ select 9 $$;
+as $$ select 10 $$;
 
 -- New rows land in the caller's group unless the server sets it.
 alter table public.players alter column group_id set default public.my_group();
@@ -2280,6 +2280,43 @@ begin
   update public.join_requests set status = 'approved', answered_at = now(), player_id = v_id where id = r.id;
 end $$;
 
+
+-- ───────────── Deleting my data (version 10) ─────────────
+-- A player removes himself from the app: his name, photo, nickname and positions are erased, his
+-- personal code stops working, and everything he gave or got (rankings, category ratings, stars,
+-- MVP votes, notifications) is deleted. Past matches keep an anonymous "—" in his place, so the
+-- others' results stay right. Alone in the group: the whole group goes. The last admin of a group
+-- with other players must make someone else admin first.
+create or replace function public.delete_me(p_code text)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_player uuid := private.player_of(p_code);
+  v_group uuid;
+begin
+  if v_player is null then
+    raise exception 'invalid code';
+  end if;
+  select p.group_id into v_group from public.players p where p.id = v_player;
+  if not exists (select 1 from public.players p where p.group_id = v_group and p.active and p.id <> v_player) then
+    delete from public.groups where id = v_group;
+    return;
+  end if;
+  update public.players
+  set name = '—', nickname = null, photo = null, emoji = '⚽', positions = '{}', position = 'any', can_gk = false,
+      active = false, is_admin = false
+  where id = v_player;
+  delete from public.player_codes where player_id = v_player;
+  delete from public.ballots where voter_id = v_player;
+  delete from public.attr_ratings where voter_id = v_player or player_id = v_player;
+  delete from public.coach_ratings where player_id = v_player;
+  delete from public.mvp_votes where voter_id = v_player;
+  delete from public.push_subs where player_id = v_player;
+  delete from public.push_outbox where player_id = v_player;
+  update public.join_requests set player_id = null, name = '—', note = null where player_id = v_player;
+end $$;
+
 -- ───────────── Who may call what ─────────────
 
 do $$
@@ -2301,7 +2338,8 @@ begin
     'public.rate_attr(text, uuid, text, int)', 'public.my_attr_ratings(text)', 'public.attr_cards()', 'public.attr_rating_status()',
     'public.save_push(text, text, text, text)', 'public.drop_push(text, text)', 'public.has_push(text, text)',
     'public.set_listing(jsonb)', 'public.find_groups(text)', 'public.request_join(uuid, text, text, text)',
-    'public.my_requests(text)', 'public.cancel_request(text, uuid)', 'public.admin_requests()', 'public.answer_request(uuid, boolean, text)'
+    'public.my_requests(text)', 'public.cancel_request(text, uuid)', 'public.admin_requests()', 'public.answer_request(uuid, boolean, text)',
+    'public.delete_me(text)'
   ] loop
     execute format('revoke execute on function %s from public', f);
     execute format('grant execute on function %s to anon, authenticated', f);

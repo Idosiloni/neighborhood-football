@@ -122,6 +122,25 @@ export default function Me({ edit = false }) {
       >
         {t('onboarding.me.leave')}
       </button>
+      <button
+        className="link-btn danger"
+        onClick={async () => {
+          if (!confirm(t('onboarding.me.deleteConfirm', { group: me.group.name }))) return
+          if (!confirm(t('onboarding.me.deleteSure'))) return
+          try {
+            await api.deleteMe(code)
+          } catch (err) {
+            return alert(err.message?.includes('last admin') ? t('onboarding.me.lastAdmin') : t('onboarding.me.deleteFailed'))
+          }
+          forgetMyCode(code)
+          window.location.hash = '#/'
+          window.location.reload()
+        }}
+      >
+        {t('onboarding.me.delete')}
+      </button>
+      <a className="link-btn" href="/privacy.html">{t('onboarding.privacy')}</a>
+      <p className="muted small center">{t('onboarding.me.version', { v: __APP_VERSION__ })}</p>
     </main>
   )
 }

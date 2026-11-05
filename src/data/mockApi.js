@@ -602,6 +602,22 @@ export function createMockApi() {
       Object.assign(p, { active: false, is_admin: false })
       save()
     },
+    async deleteMe(code) {
+      const p = playerByCode(code)
+      if (!p) throw new Error('invalid code')
+      const alone = !state.players.some((x) => x.group_id === p.group_id && x.active && x.id !== p.id)
+      if (alone) {
+        state.groups = state.groups.filter((g) => g.id !== p.group_id)
+        state.players = state.players.filter((x) => x.group_id !== p.group_id)
+      } else {
+        guardLastAdmin(p, { ...p, active: false })
+        Object.assign(p, { name: '—', nickname: null, photo: null, emoji: '⚽', ...fromPositions([]), active: false, is_admin: false })
+        state.ballots = state.ballots.filter((b) => b.voter_id !== p.id)
+        state.attrRatings = (state.attrRatings ?? []).filter((r) => r.voter_id !== p.id && r.player_id !== p.id)
+      }
+      delete state.codes[p.id]
+      save()
+    },
     async getRatings() {
       requireAdmin()
       return ratingsOf(myGroupId()).filter((r) => state.players.some((p) => p.id === r.player_id && p.active))

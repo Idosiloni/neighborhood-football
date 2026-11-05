@@ -130,6 +130,10 @@ export function createSupabaseApi(url, key) {
     async leaveGroup(code) {
       check(await db.rpc('leave_group', { p_code: code }))
     },
+    // Version 10: erase this player (name, photo, code, ratings); alone in the group = the group goes.
+    async deleteMe(code) {
+      check(await db.rpc('delete_me', { p_code: code }))
+    },
 
     // ── a player edits his own profile / a new player joins with the group link ──
     async updateMyProfile(code, f) {

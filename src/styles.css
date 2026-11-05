@@ -8,7 +8,7 @@
   --muted: #5d7066;
   --line: rgb(17 36 26 / 0.1);
   --line-strong: rgb(17 36 26 / 0.22);
-  --grass: #1f8a4c;
+  --grass: #1a7f45; /* 5:1 with white, both ways (WCAG AA) */
   --grass-deep: #146438;
   --grass-mow: #239552;
   --grass-soft: #e3f2e8;
@@ -18,7 +18,7 @@
   --orange: #f2701c;
   --orange-deep: #b8500d;
   --live: #e5383b;
-  --ok: #1f8a4c;
+  --ok: #1a7f45;
   --danger: #d33a2c;
   --wa: #25d366;
   --gold: #d9a514;

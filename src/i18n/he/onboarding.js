@@ -1,6 +1,7 @@
 // Texts of the onboarding area: welcome, joining, opening a group, "אני", invites, install.
 // Same keys in he/ and en/. Gender-neutral Hebrew (docs/i18n.md).
 export default {
+  privacy: 'מדיניות פרטיות',
   // Server error keys, mapped in Join.jsx
   errors: {
     alreadyClaimed: 'כבר נרשמו בשם הזה. אם זה השם שלך, אפשר לבקש ממנהלי הקבוצה את הקישור האישי.',
@@ -136,6 +137,11 @@ export default {
     lastAdmin: 'רק לך יש הרשאת ניהול בקבוצה. קודם צריך לתת הרשאת ניהול למישהו נוסף (ניהול → שחקנים).',
     leaveFailed: 'לא הצלחתי לעזוב. אפשר לנסות שוב.',
     leave: 'עזיבת הקבוצה',
+    delete: 'מחיקת הנתונים שלי',
+    deleteConfirm: 'למחוק את הנתונים שלך ב{group}? השם, התמונה, הכינוי והקישור האישי נמחקים, וגם כל הדירוגים שנתת וקיבלת. במשחקים שכבר היו יופיע "—" במקום השם. אי אפשר לבטל.',
+    deleteSure: 'בטוח? זה סופי.',
+    deleteFailed: 'המחיקה לא הצליחה. אפשר לנסות שוב.',
+    version: 'גרסה {v}',
     sounds: '🔊 צלילים (שריקות, קהל בגול)',
     goalSound: 'צליל של גול (לוחצים כדי לשמוע ולבחור)',
   },

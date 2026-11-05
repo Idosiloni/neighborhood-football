@@ -1,6 +1,7 @@
 // Texts of the onboarding area: welcome, joining, opening a group, "Me", invites, install.
 // American English; same keys as he/onboarding.js. British differences: en-GB/onboarding.js.
 export default {
+  privacy: 'Privacy policy',
   // Server error keys, mapped in Join.jsx
   errors: {
     alreadyClaimed: "Someone already signed up with this name. If that's you, ask the group admin for your personal link.",
@@ -136,6 +137,11 @@ export default {
     lastAdmin: "You're the only admin. First make someone else an admin too (Admin → Players).",
     leaveFailed: "Couldn't leave the group. Please try again.",
     leave: 'Leave the group',
+    delete: 'Delete my data',
+    deleteConfirm: 'Delete your data in {group}? Your name, photo, nickname and personal link are erased, and every rating you gave or got. Past games show "—" instead of your name. This cannot be undone.',
+    deleteSure: 'Sure? This is final.',
+    deleteFailed: "Couldn't delete. Please try again.",
+    version: 'Version {v}',
     sounds: '🔊 Sounds (whistles, crowd on goals)',
     goalSound: 'Goal sound (tap to hear and pick)',
   },
