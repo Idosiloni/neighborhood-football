@@ -16,14 +16,31 @@ export function computeStats(players, matches, goals, mvp = []) {
   const per = new Map(
     players.map((p) => [
       p.id,
-      { id: p.id, games: 0, wins: 0, draws: 0, losses: 0, goals: 0, assists: 0, streak: 0, bestStreak: 0, keeperGames: 0, conceded: 0, mvp: 0 },
+      {
+        id: p.id, games: 0, wins: 0, draws: 0, losses: 0, goals: 0, assists: 0, streak: 0, bestStreak: 0, keeperGames: 0, conceded: 0, mvp: 0,
+        results: [], // 'W' | 'D' | 'L' of every game, oldest first (form = the last 5)
+        nights: new Set(), // the game days played
+      },
     ]),
   )
   const duos = new Map()
   const combos = new Map()
+  const rivals = new Map() // "a|b" (sorted ids): games against each other, wins of each, draws
+  const allNights = [] // game days with a finished game, in order
 
   for (const m of done) {
     const mg = goalsByMatch.get(m.id) ?? []
+    if (m.night_id && allNights.at(-1) !== m.night_id && !allNights.includes(m.night_id)) allNights.push(m.night_id)
+    for (const x of m.team_a) {
+      for (const y of m.team_b) {
+        const key = [x, y].sort().join('|')
+        const r = rivals.get(key) ?? { ids: key.split('|'), games: 0, wins: { [x]: 0, [y]: 0 }, draws: 0 }
+        r.games++
+        if (m.winner === 'draw') r.draws++
+        else r.wins[m.winner === 'a' ? x : y]++
+        rivals.set(key, r)
+      }
+    }
     for (const side of ['a', 'b']) {
       const team = m[`team_${side}`]
       const won = m.winner === side
@@ -33,6 +50,8 @@ export function computeStats(players, matches, goals, mvp = []) {
         const s = per.get(id)
         if (!s) continue
         s.games++
+        s.results.push(won ? 'W' : drew ? 'D' : 'L')
+        if (m.night_id) s.nights.add(m.night_id)
         if (won) {
           s.wins++
           s.streak++
@@ -80,15 +99,102 @@ export function computeStats(players, matches, goals, mvp = []) {
     for (const v of votes) if (v.votes === top && per.has(v.player_id)) per.get(v.player_id).mvp++
   }
 
-  const list = [...per.values()].map((s) => ({
+  // Attendance: a game day counts as attended if the player played at least one finished game
+  // that day (not just signed up), from the first game day they ever played.
+  const nightIndex = new Map(allNights.map((id, i) => [id, i]))
+  const list = [...per.values()].map(({ nights, ...s }) => ({
     ...s,
+    ...attendanceOf(nights, nightIndex, allNights.length),
+    form: s.results.slice(-5),
     winRate: s.games ? s.wins / s.games : 0,
     goalsPerGame: s.games ? s.goals / s.games : 0,
     assistsPerGame: s.games ? s.assists / s.games : 0,
     overall: overall(s),
   }))
 
-  return { players: list, byId: Object.fromEntries(list.map((s) => [s.id, s])), duos: [...duos.values()], combos: [...combos.values()], matchCount: done.length }
+  return {
+    players: list,
+    byId: Object.fromEntries(list.map((s) => [s.id, s])),
+    duos: [...duos.values()],
+    combos: [...combos.values()],
+    rivals: [...rivals.values()],
+    matchCount: done.length,
+    nightCount: allNights.length,
+  }
+}
+
+// Game days played, out of the game days since the first one played, and the streak of days in a row up to the latest.
+function attendanceOf(nights, nightIndex, total) {
+  const played = [...nights].map((id) => nightIndex.get(id)).filter((i) => i !== undefined)
+  if (!played.length) return { nightsPlayed: 0, nightsSince: 0, attendance: null, nightStreak: 0 }
+  const first = Math.min(...played)
+  const set = new Set(played)
+  let streak = 0
+  for (let i = total - 1; i >= 0 && set.has(i); i--) streak++
+  const since = total - first
+  return { nightsPlayed: played.length, nightsSince: since, attendance: played.length / since, nightStreak: streak }
+}
+
+// ── seasons ──
+
+// The periods to show stats for: "earlier" (games before the first season, if any), each season
+// (from its start day until the next one starts), newest last. nights: { id, day }.
+export function seasonPeriods(seasons, nights) {
+  const sorted = [...seasons].sort((a, b) => a.starts_on.localeCompare(b.starts_on))
+  const periods = sorted.map((s, i) => ({ key: s.id, name: s.name, from: s.starts_on, to: sorted[i + 1]?.starts_on ?? null }))
+  if (sorted.length && nights.some((n) => n.day < sorted[0].starts_on)) periods.unshift({ key: 'earlier', name: null, from: null, to: sorted[0].starts_on })
+  return periods
+}
+
+const inPeriod = (day, p) => (!p.from || day >= p.from) && (!p.to || day < p.to)
+
+// The history (as getHistory returns it) of one period only; period null = all of it.
+export function historyIn(history, period) {
+  if (!period) return history
+  const nights = history.nights.filter((n) => inPeriod(n.day, period))
+  const ids = new Set(nights.map((n) => n.id))
+  const matches = history.matches.filter((m) => ids.has(m.night_id))
+  const matchIds = new Set(matches.map((m) => m.id))
+  return {
+    ...history,
+    nights,
+    matches,
+    goals: history.goals.filter((g) => matchIds.has(g.match_id)),
+    mvp: (history.mvp ?? []).filter((v) => matchIds.has(v.match_id)),
+  }
+}
+
+// ── head to head ──
+
+// The best teammates (win rate together, at least 3 games) and the record against each opponent.
+export function headToHead(stats, id, { min = MIN_DUO_GAMES } = {}) {
+  const partners = stats.duos
+    .filter((d) => d.ids.includes(id) && d.games >= min)
+    .map((d) => ({ id: d.ids.find((x) => x !== id), games: d.games, wins: d.wins, rate: d.wins / d.games }))
+    .sort((x, y) => y.rate - x.rate || y.games - x.games)
+  const opponents = stats.rivals
+    .filter((r) => r.ids.includes(id) && r.games >= min)
+    .map((r) => {
+      const other = r.ids.find((x) => x !== id)
+      return { id: other, games: r.games, wins: r.wins[id], losses: r.wins[other], draws: r.draws }
+    })
+    .sort((x, y) => y.games - x.games)
+  return { partners, opponents }
+}
+
+// ── milestones ──
+
+const STEPS = { games: [10, 25, 50, 100, 200], goals: [10, 25, 50, 100], mvp: [5, 10, 25], nightStreak: [5, 10, 20] }
+const MILESTONE_EMOJI = { games: '🏟️', goals: '⚽', mvp: '🌟', nightStreak: '📅' }
+
+// The highest milestone reached in each kind, e.g. 50 games, 25 goals.
+export function milestones(s) {
+  return Object.entries(STEPS)
+    .map(([kind, steps]) => {
+      const reached = steps.filter((n) => (s[kind] ?? 0) >= n).at(-1)
+      return reached && { key: kind, emoji: MILESTONE_EMOJI[kind], label: t(`stats.milestones.${kind}`, { count: reached }) }
+    })
+    .filter(Boolean)
 }
 
 // Card rating from match results only (wins, goals, assists, games). Null until 3 games.

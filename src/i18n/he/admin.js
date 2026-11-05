@@ -156,4 +156,19 @@ export default {
     clear: 'בלי דירוג',
     rated: '{n} מתוך {total} דורגו',
   },
+  // Seasons: each runs from its start day until the next one.
+  seasons: {
+    title: 'עונות',
+    hint: 'עונה חדשה מתחילה טבלה חדשה. כל מה שהיה נשמר ומופיע בסטטיסטיקה, תחת העונות הקודמות.',
+    none: 'עוד אין עונות: הטבלה סופרת את כל המשחקים.',
+    name: 'שם העונה',
+    defaultName: 'עונה {n}',
+    from: 'מתחילה ב-',
+    start: 'פתיחת עונה חדשה',
+    starting: 'פותחים…',
+    since: 'מ-{date}',
+    remove: 'מחיקה',
+    confirmRemove: 'למחוק את "{name}"? המשחקים עצמם לא נמחקים, הם עוברים לעונה שלפניה.',
+    failed: 'לא הצלחנו לפתוח עונה. אולי כבר יש עונה שמתחילה באותו יום?',
+  },
 }

@@ -155,4 +155,19 @@ export default {
     clear: 'No rating',
     rated: '{n} of {total} rated',
   },
+  // Seasons: each runs from its start day until the next one.
+  seasons: {
+    title: 'Seasons',
+    hint: 'A new season starts a fresh table. Everything before is kept and shows up in Stats, under the earlier seasons.',
+    none: 'No seasons yet: the table counts every game.',
+    name: 'Season name',
+    defaultName: 'Season {n}',
+    from: 'Starts on',
+    start: 'Start a new season',
+    starting: 'Starting…',
+    since: 'from {date}',
+    remove: 'Delete',
+    confirmRemove: 'Delete "{name}"? The games themselves stay; they move to the season before it.',
+    failed: "Couldn't start the season. Maybe one already starts that day?",
+  },
 }

@@ -85,9 +85,9 @@ test('schema: can be run again (third time) without errors', async () => {
   await db.exec(SCHEMA)
 })
 
-test('schema: schema_version() = 6 for anyone', async () => {
-  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 6)
-  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 6)
+test('schema: schema_version() = 7 for anyone', async () => {
+  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 7)
+  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 7)
 })
 
 test('schema: no table sends its rows over realtime (only content-free pings)', async () => {
@@ -1015,13 +1015,13 @@ test('join code: only the admin replaces it; the old link stops working', async 
   assert.ok(!(await join(fresh.toUpperCase(), 'Another')).error)
 })
 
-test('schema: running it again keeps groups and join codes; schema_version still 6', async () => {
+test('schema: running it again keeps groups and join codes; schema_version still 7', async () => {
   const jc = await joinCode()
   const groups = await count(db, 'select count(*)::int as n from public.groups')
   await db.exec(SCHEMA)
   assert.equal(await joinCode(), jc)
   assert.equal(await count(db, 'select count(*)::int as n from public.groups'), groups)
-  assert.equal((await one(db, 'select public.schema_version() as v')).v, 6)
+  assert.equal((await one(db, 'select public.schema_version() as v')).v, 7)
 })
 
 // ───────────── Several positions per player ─────────────
@@ -1252,7 +1252,7 @@ test('upgrade: v1 data (players, codes, ballots, ratings) survives the new schem
   assert.deepEqual((await one(up, 'select positions, can_gk from public.players where id = $1', [pid.d])), { positions: ['gk'], can_gk: true })
   assert.equal(await count(up, 'select count(*)::int as n from public.ballots where moved is null'), 0)
   assert.deepEqual((await one(up, 'select positions from public.players where id = $1', [pid.a])).positions, [])
-  assert.equal((await one(up, 'select public.schema_version() as v')).v, 6)
+  assert.equal((await one(up, 'select public.schema_version() as v')).v, 7)
   // groups from before options existed played in Hebrew, and keep it
   assert.deepEqual((await one(up, 'select options from public.groups')).options, { lang: 'he' })
   assert.equal(await count(up, 'select count(*)::int as n from public.groups'), 1)
@@ -1510,4 +1510,39 @@ test('quick sign-up: off by default; on: the list (no codes, no photos), tap in 
 
   await db.query(`delete from public.nights where group_id = $1 and day = $2`, [G.id, day.d])
   await db.query(`update public.groups set options = '{}' where id = $1`, [G.id])
+})
+
+// ───────────── version 7: seasons ─────────────
+
+test('seasons: members read them; only admins start, rename and remove; another group sees nothing', async () => {
+  const add = (who, name, day) => as(db, who, `insert into public.seasons (name, starts_on) values ($1, $2) returning group_id`, [name, day])
+  assert.ok((await add(MEMBER, 'Nope', '2027-02-01')).error)
+  assert.ok((await add('anon', 'Nope', '2027-02-01')).error)
+  const r = await add('admin', 'Season 1', '2027-02-01')
+  assert.ok(!r.error, r.error)
+  assert.equal(r.rows[0].group_id, G.id)
+  assert.ok((await add('admin', 'Twice', '2027-02-01')).error) // one season per start day
+  assert.ok((await add('admin', ' ', '2027-03-01')).error)
+  assert.deepEqual((await as(db, MEMBER, 'select name from public.seasons')).rows, [{ name: 'Season 1' }])
+  assert.deepEqual((await as(db, { code: H.adminCode }, 'select name from public.seasons')).rows, [])
+  assert.deepEqual((await as(db, 'anon', 'select name from public.seasons')).rows, [])
+  await as(db, MEMBER, `update public.seasons set name = 'Hacked'`)
+  assert.equal((await one(db, 'select name from public.seasons where group_id = $1', [G.id])).name, 'Season 1')
+  assert.ok(!(await as(db, 'admin', `update public.seasons set name = 'Spring'`)).error)
+  assert.ok((await as(db, 'admin', `update public.seasons set group_id = $1`, [H.id])).error)
+  await as(db, MEMBER, 'delete from public.seasons')
+  assert.equal(await count(db, 'select count(*)::int as n from public.seasons where group_id = $1', [G.id]), 1)
+  assert.ok(!(await as(db, 'admin', 'delete from public.seasons')).error)
+  assert.equal(await count(db, 'select count(*)::int as n from public.seasons where group_id = $1', [G.id]), 0)
+})
+
+test('upgrade: a version 6 database gets the seasons table, and running it again keeps the seasons', async () => {
+  const up = await newDb()
+  await up.exec(SCHEMA)
+  await up.exec('drop table public.seasons')
+  const g = await newGroup(up, 'Old')
+  await up.exec(SCHEMA)
+  await up.query(`insert into public.seasons (group_id, name, starts_on) values ($1, 'S1', '2027-01-01')`, [g.id])
+  await up.exec(SCHEMA)
+  assert.equal(await count(up, 'select count(*)::int as n from public.seasons'), 1)
 })

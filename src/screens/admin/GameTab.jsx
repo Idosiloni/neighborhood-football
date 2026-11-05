@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { api } from '../../data'
 import { useLoad } from '../../lib/hooks'
-import { gameLabel, nextGameDay } from '../../lib/dates'
+import { gameLabel, nextGameDay, today } from '../../lib/dates'
 import { LevelFields, RulesFields, WhenFields } from '../../components/GameSettings'
 import { forgetSchedule } from '../../lib/schedule'
-import { setGroupLanguage, t } from '../../i18n'
+import { setGroupLanguage, shortDate, t } from '../../i18n'
 import { optionsOf } from '../../lib/options'
 import { applyTeamColors } from '../../lib/teamColors'
 
@@ -57,6 +57,7 @@ export default function GameTab({ group, reload: reloadGroup }) {
     <section className="stack">
       {group && <GroupName group={group} onSaved={reloadGroup} />}
       {group && 'options' in group && <GroupLevel group={group} onSaved={reloadGroup} />}
+      <Seasons />
       {group && 'options' in group && <GroupLanguage group={group} onSaved={reloadGroup} />}
 
       <div className="card stack">
@@ -83,6 +84,74 @@ export default function GameTab({ group, reload: reloadGroup }) {
         <button className="btn" onClick={save} disabled={!draft || status === 'saving'}>{t('common.save')}</button>
       </div>
     </section>
+  )
+}
+
+// Seasons: the list, and starting a new one. It starts tomorrow by default, so today's games
+// (an admin usually does this right after the last game) stay in the season that is ending.
+function Seasons() {
+  const { data: seasons, reload } = useLoad(() => api.listSeasons(), [])
+  const tomorrow = (() => {
+    const [y, m, d] = today().split('-').map(Number)
+    const x = new Date(y, m - 1, d + 1)
+    return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+  })()
+  const [name, setName] = useState(null)
+  const [from, setFrom] = useState(tomorrow)
+  const [status, setStatus] = useState('')
+  if (!seasons) return null
+  const shownName = name ?? t('admin.seasons.defaultName', { n: seasons.length + 1 })
+  const dateText = (day) => {
+    const [, m, d] = day.split('-').map(Number)
+    return shortDate(m, d)
+  }
+
+  const start = async (e) => {
+    e.preventDefault()
+    setStatus('saving')
+    try {
+      await api.addSeason(shownName, from)
+      setName(null)
+      setStatus('')
+      await reload()
+    } catch {
+      setStatus('error')
+    }
+  }
+  const remove = async (s) => {
+    if (!confirm(t('admin.seasons.confirmRemove', { name: s.name }))) return
+    await api.deleteSeason(s.id)
+    await reload()
+  }
+
+  return (
+    <form className="card stack" onSubmit={start}>
+      <h2>{t('admin.seasons.title')}</h2>
+      <p className="muted small">{t('admin.seasons.hint')}</p>
+      {seasons.length === 0 ? (
+        <p className="muted small">{t('admin.seasons.none')}</p>
+      ) : (
+        <ul className="season-list">
+          {[...seasons].reverse().map((s) => (
+            <li key={s.id}>
+              <strong>{s.name}</strong>
+              <span className="muted small">{t('admin.seasons.since', { date: dateText(s.starts_on) })}</span>
+              <button type="button" className="link-btn danger" onClick={() => remove(s)}>{t('admin.seasons.remove')}</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <label className="field">
+        {t('admin.seasons.name')}
+        <input className="input" value={shownName} maxLength={30} onChange={(e) => setName(e.target.value)} />
+      </label>
+      <label className="field">
+        {t('admin.seasons.from')}
+        <input className="input" type="date" dir="ltr" value={from} onChange={(e) => e.target.value && setFrom(e.target.value)} />
+      </label>
+      {status === 'error' && <p className="err">{t('admin.seasons.failed')}</p>}
+      <button className="btn" disabled={!shownName.trim() || status === 'saving'}>{status === 'saving' ? t('admin.seasons.starting') : t('admin.seasons.start')}</button>
+    </form>
   )
 }
 

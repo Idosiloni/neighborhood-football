@@ -425,6 +425,29 @@ export function createMockApi() {
       })
     },
 
+    async listSeasons() {
+      return copy((state.seasons ?? []).filter(inMyGroup).sort((a, b) => a.starts_on.localeCompare(b.starts_on)))
+    },
+    async addSeason(name, startsOn) {
+      requireAdmin()
+      state.seasons ??= []
+      if (!name?.trim() || name.trim().length > 30) throw new Error('invalid name')
+      if (state.seasons.some((s) => inMyGroup(s) && s.starts_on === startsOn)) throw new Error('duplicate season')
+      state.seasons.push({ id: newId(), group_id: myGroupId(), name: name.trim(), starts_on: startsOn })
+      save()
+    },
+    async renameSeason(id, name) {
+      requireAdmin()
+      const s = (state.seasons ?? []).find((x) => inMyGroup(x) && x.id === id)
+      if (s && name?.trim()) s.name = name.trim()
+      save()
+    },
+    async deleteSeason(id) {
+      requireAdmin()
+      state.seasons = (state.seasons ?? []).filter((x) => !(inMyGroup(x) && x.id === id))
+      save()
+    },
+
     async getSchedule() {
       const g = state.groups.find((x) => x.id === myGroupId())
       return g ? { ...settingsOf(g), options: g.options ?? {} } : null

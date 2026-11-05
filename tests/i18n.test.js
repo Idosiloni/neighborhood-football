@@ -94,3 +94,26 @@ test('options: known keys and values only; defaults filled in and left out when 
   assert.deepEqual(cleanOptions({ lang: null, junk: 1, periods: 1, tie: 'draw' }), { tie: 'draw' })
   assert.deepEqual(matchRules({ lang: 'he', periods: 2, tie: 'draw', team_a: 'red' }), { periods: 2, tie: 'draw' })
 })
+
+test('i18n: every text the code asks for exists in Hebrew and in English', async () => {
+  const { readdirSync, readFileSync, statSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const files = []
+  const walk = (dir) => {
+    for (const f of readdirSync(dir)) {
+      const p = join(dir, f)
+      if (statSync(p).isDirectory()) { if (!p.endsWith('i18n')) walk(p) } else if (/\.jsx?$/.test(f)) files.push(p)
+    }
+  }
+  walk(new URL('../src', import.meta.url).pathname)
+  const keys = new Set()
+  for (const f of files) for (const m of readFileSync(f, 'utf8').matchAll(/\bt[xl]?\(\s*'([a-z][\w]*\.[\w.]+)'/gi)) keys.add(m[1])
+  const has = (dict, key) => {
+    let v = dict
+    for (const part of key.split('.')) v = v?.[part]
+    return v !== undefined
+  }
+  const missing = [...keys].filter((k) => !has(he, k) || !has(en, k))
+  assert.deepEqual(missing, [])
+  assert.ok(keys.size > 300, `only ${keys.size} keys found`)
+})

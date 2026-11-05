@@ -1,4 +1,4 @@
--- Neighborhood football, schema version 6: many groups in one database, each with its own options and rules.
+-- Neighborhood football, schema version 7: many groups in one database, each with its own options and rules.
 -- Each group has its own players, game nights, matches, ratings and join link.
 -- The player who opens a group is its admin (and may make other players admins too).
 --
@@ -59,6 +59,17 @@ create table if not exists public.coach_ratings (
   group_id uuid not null references public.groups on delete cascade,
   stars int not null check (stars between 1 and 5),
   updated_at timestamptz not null default now()
+);
+
+-- Version 7: seasons. Each one starts on a day; it runs until the next one starts. Games before
+-- the first season belong to "earlier". Members read them; admins start and rename them.
+create table if not exists public.seasons (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups on delete cascade,
+  name text not null check (length(trim(name)) between 1 and 30),
+  starts_on date not null,
+  created_at timestamptz not null default now(),
+  unique (group_id, starts_on)
 );
 
 create table if not exists public.nights (
@@ -416,11 +427,12 @@ $$;
 create or replace function public.schema_version()
 returns int
 language sql immutable security definer set search_path = ''
-as $$ select 6 $$;
+as $$ select 7 $$;
 
 -- New rows land in the caller's group unless the server sets it.
 alter table public.players alter column group_id set default public.my_group();
 alter table public.nights alter column group_id set default public.my_group();
+alter table public.seasons alter column group_id set default public.my_group();
 
 -- ───────────── Triggers ─────────────
 
@@ -643,7 +655,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['players', 'nights', 'attendance', 'matches', 'goals'] loop
+  foreach t in array array['players', 'nights', 'attendance', 'matches', 'goals', 'seasons'] loop
     execute format('drop trigger if exists %I on public.%I', t || '_ping', t);
     execute format('create trigger %I after insert or update or delete on public.%I for each row execute function private.ping_group()', t || '_ping', t);
   end loop;
@@ -677,7 +689,7 @@ begin
   for r in
     select policyname, tablename from pg_policies
     where schemaname = 'public'
-      and tablename in ('groups', 'players', 'admins', 'player_codes', 'ballots', 'nights', 'attendance', 'matches', 'goals', 'mvp_votes')
+      and tablename in ('groups', 'players', 'admins', 'player_codes', 'ballots', 'nights', 'attendance', 'matches', 'goals', 'mvp_votes', 'seasons')
   loop
     execute format('drop policy %I on public.%I', r.policyname, r.tablename);
   end loop;
@@ -752,6 +764,21 @@ begin
   end loop;
 end $$;
 grant select, insert, update, delete on public.nights, public.attendance, public.matches, public.goals to anon, authenticated;
+
+-- Seasons: members read their group's; admins start, rename and remove them.
+alter table public.seasons enable row level security;
+revoke all on public.seasons from public, anon, authenticated;
+create policy "members read seasons" on public.seasons
+  for select to anon, authenticated using (group_id = (select public.my_group()));
+create policy "admins add seasons" on public.seasons
+  for insert to anon, authenticated with check (group_id = (select public.my_group()) and (select public.is_admin()));
+create policy "admins change seasons" on public.seasons
+  for update to anon, authenticated using (group_id = (select public.my_group()) and (select public.is_admin()))
+  with check (group_id = (select public.my_group()));
+create policy "admins remove seasons" on public.seasons
+  for delete to anon, authenticated using (group_id = (select public.my_group()) and (select public.is_admin()));
+grant select, insert, delete on public.seasons to anon, authenticated;
+grant update (name, starts_on) on public.seasons to anon, authenticated;
 
 -- ───────────── Opening a group, joining it ─────────────
 

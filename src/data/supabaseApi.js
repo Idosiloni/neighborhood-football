@@ -7,6 +7,18 @@ import { optionsPatch } from '../lib/options'
 // Everything but the photo itself (see lib/photos.js): photo_v says which photo he has.
 const PLAYER_FIELDS = 'id,group_id,name,emoji,position,can_gk,positions,active,nickname,is_admin,claimed_at,created_at,photo_v'
 
+// Every row of a query, page by page: the API returns at most 1000 rows per request, and a
+// group's history (goals, attendance) passes that within a season or two.
+async function allRows(make, size = 1000) {
+  let out = []
+  for (let from = 0; ; from += size) {
+    const { data, error } = await make().range(from, from + size - 1)
+    if (error) throw error
+    out = out.concat(data)
+    if (data.length < size) return out
+  }
+}
+
 function check({ data, error }) {
   if (error) throw error
   return data
@@ -168,14 +180,30 @@ export function createSupabaseApi(url, key) {
     async deleteGoal(id) {
       check(await db.from('goals').delete().eq('id', id))
     },
+    // Everything the stats need, all of it (paged).
     async getHistory() {
       const [nights, matches, goals, mvp] = await Promise.all([
-        db.from('nights').select('*').order('day'),
-        db.from('matches').select('*').order('created_at'),
-        db.from('goals').select('*').order('created_at'),
+        allRows(() => db.from('nights').select('*').order('day').order('id')),
+        allRows(() => db.from('matches').select('*').order('created_at').order('id')),
+        allRows(() => db.from('goals').select('*').order('created_at').order('id')),
         db.rpc('mvp_tally'),
       ])
-      return { nights: check(nights), matches: check(matches), goals: check(goals), mvp: mvp.error ? [] : mvp.data }
+      return { nights, matches, goals, mvp: mvp.error ? [] : mvp.data }
+    },
+
+    // ── seasons (schema version 7): each runs from its start day until the next one ──
+    async listSeasons() {
+      const { data, error } = await db.from('seasons').select('id,name,starts_on').order('starts_on')
+      return error ? [] : data // an older database has no seasons
+    },
+    async addSeason(name, startsOn) {
+      check(await db.from('seasons').insert({ name: name.trim(), starts_on: startsOn }))
+    },
+    async renameSeason(id, name) {
+      check(await db.from('seasons').update({ name: name.trim() }).eq('id', id))
+    },
+    async deleteSeason(id) {
+      check(await db.from('seasons').delete().eq('id', id))
     },
 
     // ── the group's settings: when and where, and the game rules ──

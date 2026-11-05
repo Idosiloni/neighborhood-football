@@ -1,5 +1,14 @@
 // British English words that differ from American, as full keys: { 'ns.key': 'text' }.
 export default {
+  'stats.table.title': 'Table',
+  'stats.table.games': 'P',
+  'stats.table.record': 'W-D-L',
+  'stats.form.D': 'D',
+  'stats.form.names.D': 'draw',
+  'stats.cardMore.record': 'W-D-L: {w}-{d}-{l}',
+  'stats.cardMore.opponentLine': 'W-D-L: {w}-{d}-{l}',
+  'stats.milestones.games': '{count} matches',
+  'stats.table.minGames': 'Win % only after {count} matches',
   'stats.sub': 'Awards, tables and player cards',
   'stats.boardsTitle': 'Tables',
   'stats.traits.saver': 'Emergency keeper',

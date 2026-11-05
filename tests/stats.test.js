@@ -184,3 +184,65 @@ for (const id of ['en-US', 'en-GB']) {
     assert.equal(getLocale(), 'he')
   })
 }
+
+// ── version 7: form, attendance, head to head, seasons, milestones ──
+import { headToHead, historyIn, milestones, seasonPeriods } from '../src/lib/stats.js'
+
+const night = (n, day, winner, a = ['a1', 'a2'], b = ['b1', 'b2']) => ({
+  id: `n${n}`, night_id: `night-${day}`, num: n, created_at: `${day}T18:0${n % 10}:00Z`, status: 'finished', winner, team_a: a, team_b: b,
+})
+
+test('form: the last 5 results, oldest first; a draw is D', () => {
+  const list = [night(1, '2027-01-02', 'a'), night(2, '2027-01-02', 'b'), night(3, '2027-01-09', 'draw'), night(4, '2027-01-09', 'a'), night(5, '2027-01-16', 'a'), night(6, '2027-01-16', 'b')]
+  const s = computeStats(players, list, [])
+  assert.deepEqual(s.byId.a1.form, ['L', 'D', 'W', 'W', 'L'])
+  assert.deepEqual(s.byId.b1.form, ['W', 'D', 'L', 'L', 'W'])
+})
+
+test('attendance: game days played since the first one, and the streak up to the latest', () => {
+  const list = [
+    night(1, '2027-01-02', 'a', ['a1'], ['b1']),
+    night(2, '2027-01-09', 'a', ['a1'], ['b2']),
+    night(3, '2027-01-16', 'a', ['a2'], ['b1']),
+    night(4, '2027-01-23', 'a', ['a1'], ['b1']),
+  ]
+  const s = computeStats(players, list, [])
+  assert.equal(s.nightCount, 4)
+  assert.deepEqual([s.byId.a1.nightsPlayed, s.byId.a1.nightsSince, s.byId.a1.nightStreak], [3, 4, 1])
+  assert.equal(s.byId.a1.attendance, 0.75)
+  assert.deepEqual([s.byId.b2.nightsPlayed, s.byId.b2.nightsSince, s.byId.b2.nightStreak], [1, 3, 0]) // first came on day 2
+  assert.equal(s.byId.k.attendance, null)
+})
+
+test('head to head: best teammates and the record against each opponent (3 games or more)', () => {
+  const list = [night(1, '2027-01-02', 'a'), night(2, '2027-01-02', 'a'), night(3, '2027-01-09', 'b'), night(4, '2027-01-09', 'draw')]
+  const h = headToHead(computeStats(players, list, []), 'a1')
+  assert.deepEqual(h.partners.map((p) => [p.id, p.games, p.wins]), [['a2', 4, 2]])
+  const vsB1 = h.opponents.find((o) => o.id === 'b1')
+  assert.deepEqual([vsB1.games, vsB1.wins, vsB1.losses, vsB1.draws], [4, 2, 1, 1])
+})
+
+test('seasons: periods from each start day to the next, "earlier" before the first; history filtered by period', () => {
+  const nights = [{ id: 'x', day: '2026-12-01' }, { id: 'y', day: '2027-01-10' }, { id: 'z', day: '2027-03-05' }]
+  const seasons = [{ id: 's2', name: 'Spring', starts_on: '2027-03-01' }, { id: 's1', name: 'Winter', starts_on: '2027-01-01' }]
+  const periods = seasonPeriods(seasons, nights)
+  assert.deepEqual(periods.map((p) => [p.key, p.from, p.to]), [['earlier', null, '2027-01-01'], ['s1', '2027-01-01', '2027-03-01'], ['s2', '2027-03-01', null]])
+  const history = {
+    nights,
+    matches: [{ id: 'm1', night_id: 'x' }, { id: 'm2', night_id: 'y' }, { id: 'm3', night_id: 'z' }],
+    goals: [{ match_id: 'm2' }, { match_id: 'm3' }],
+    mvp: [{ match_id: 'm3', player_id: 'a1', votes: 2 }],
+  }
+  const winter = historyIn(history, periods[1])
+  assert.deepEqual(winter.matches.map((m) => m.id), ['m2'])
+  assert.deepEqual(winter.goals, [{ match_id: 'm2' }])
+  assert.deepEqual(winter.mvp, [])
+  assert.equal(historyIn(history, null), history)
+  assert.deepEqual(seasonPeriods([], nights), [])
+})
+
+test('milestones: the highest step reached in each kind', () => {
+  const m = milestones({ games: 57, goals: 9, mvp: 10, nightStreak: 0 })
+  assert.deepEqual(m.map((x) => x.key), ['games', 'mvp'])
+  assert.ok(m[0].label.includes('50'))
+})

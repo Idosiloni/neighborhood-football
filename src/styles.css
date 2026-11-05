@@ -1177,3 +1177,27 @@ p { margin: 0; }
 .stars { display: flex; gap: 2px; direction: ltr; }
 .stars button { width: 34px; height: 34px; padding: 0; border: 0; background: none; font-size: 1.5rem; line-height: 1; color: var(--line-strong); }
 .stars button.on { color: var(--gold); }
+
+/* Season table and form dots */
+.season-chips { margin-bottom: 4px; }
+.season-table { display: flex; flex-direction: column; background: var(--surface); border-radius: 16px; box-shadow: var(--shadow); padding: 4px 10px; }
+.st-row { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) 2.2rem 3.6rem 2rem 2rem; align-items: center; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--line); text-decoration: none; text-align: center; font-variant-numeric: tabular-nums; }
+.st-row:last-child { border-bottom: 0; }
+.st-head { font-size: 0.75rem; font-weight: 700; color: var(--muted); padding: 6px 0; }
+.st-num { color: var(--muted); font-weight: 700; }
+.st-name { display: flex; align-items: center; gap: 8px; min-width: 0; text-align: start; font-weight: 600; }
+.st-name-text { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; padding: 0 4px; }
+.st-nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.form-dots { display: inline-flex; gap: 3px; }
+.form-dot { display: inline-flex; align-items: center; justify-content: center; width: 1.05rem; height: 1.05rem; border-radius: 50%; font-size: 0.6rem; font-weight: 700; color: #fff; line-height: 1; }
+.form-dots.large .form-dot { width: 1.6rem; height: 1.6rem; font-size: 0.8rem; }
+.form-dot.W { background: var(--grass); }
+.form-dot.D { background: #8a979e; }
+.form-dot.L { background: #c2410c; }
+.form-dot.latest { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--text); }
+.card-more { gap: 6px; }
+.card-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.season-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.season-list li { display: flex; align-items: center; gap: 10px; }
+.season-list li .link-btn { margin-inline-start: auto; }
+a.award-line { text-decoration: none; color: inherit; }
