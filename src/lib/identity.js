@@ -61,3 +61,17 @@ export function openGroup(code) {
   window.location.hash = '#/'
   window.location.reload()
 }
+
+// A notification opens /?g=<group id>#/screen: that group, if this phone is in it, then a clean address.
+export function followGroupLink() {
+  let id = null
+  try {
+    id = new URLSearchParams(window.location.search).get('g')
+  } catch {
+    return
+  }
+  if (!id) return
+  const group = myGroups().find((g) => g.id === id)
+  if (group) write(KEY, group.code)
+  window.history.replaceState(null, '', window.location.pathname + window.location.hash)
+}

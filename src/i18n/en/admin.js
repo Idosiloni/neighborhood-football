@@ -178,4 +178,26 @@ export default {
     hint: 'Only how many names each person rated. The scores themselves are secret, even from admins.',
     rated: { zero: 'Not yet', one: '1 name', other: '{count} names' },
   },
+
+  // Being found in "Find a group" (invite tab).
+  listing: {
+    title: 'Being found',
+    text: 'An open group shows up in "Find a group" by city. People searching see only the group name, city, pitch, day and time, and how many players. No names, photos or phone numbers. Everyone who asks needs your OK.',
+    listed: 'Open to new players',
+    city: 'City',
+    cityPlaceholder: 'e.g. Hod HaSharon',
+    about: 'One line about the group',
+    aboutPlaceholder: 'e.g. Friendly football, all levels, 6 a side',
+    looking: 'Players needed this week',
+    lookingHint: 'Moves the group to the top of the search until the next game day.',
+    saved: 'Saved ✓',
+    errors: { nameTaken: 'Someone in the group already has that name. Change it in the box and approve again.', full: 'The group is full (150 players).', invalid: 'City up to 40 characters, the line up to 140.', failed: "Didn't save. Try again." },
+  },
+  requests: {
+    title: { one: '1 join request', other: '{count} join requests' },
+    text: 'From "Find a group". Once approved, they join the list and get their personal link by themselves. You can change the name first.',
+    nameLabel: 'Name in the group',
+    yes: 'Approve',
+    no: 'Not this time',
+  },
 }

@@ -136,11 +136,16 @@ export function createSupabaseApi(url, key) {
       // No photo in the form = he didn't touch it: keep the one he has.
       check(await db.rpc('update_my_profile', { p_code: code, ...profileArgs(f), p_keep_photo: f.photo === undefined }))
     },
+    // After joining, the others hear about it now (not in 5 minutes).
     async claimPlayer(joinCode, playerId, f) {
-      return check(await db.rpc('claim_player', { p_join: joinCode, p_player: playerId, ...profileArgs(f) }))
+      const code = check(await db.rpc('claim_player', { p_join: joinCode, p_player: playerId, ...profileArgs(f) }))
+      this.kickPush()
+      return code
     },
     async joinTeam(joinCode, f) {
-      return check(await db.rpc('join_team', { p_join: joinCode, p_name: f.name, ...profileArgs(f) }))
+      const code = check(await db.rpc('join_team', { p_join: joinCode, p_name: f.name, ...profileArgs(f) }))
+      this.kickPush()
+      return code
     },
 
     // ── game nights ── (the database fills in the group)
@@ -307,6 +312,45 @@ export function createSupabaseApi(url, key) {
     },
     async newJoinCode() {
       return check(await db.rpc('new_join_code'))
+    },
+    // ── notifications (version 9) ──
+    async savePush(code, sub) {
+      check(await db.rpc('save_push', { p_code: code, p_endpoint: sub.endpoint, p_p256dh: sub.keys.p256dh, p_auth: sub.keys.auth }))
+    },
+    async dropPush(code, endpoint) {
+      check(await db.rpc('drop_push', { p_code: code, p_endpoint: endpoint }))
+    },
+    async hasPush(code, endpoint) {
+      return check(await db.rpc('has_push', { p_code: code, p_endpoint: endpoint })) === true
+    },
+    // Sends what waits right away (otherwise it goes within 5 minutes). Never fails the caller.
+    kickPush() {
+      fetch(`${url}/functions/v1/push`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {})
+    },
+
+    // ── finding a group (version 9) ──
+    async setListing(patch) {
+      return check(await db.rpc('set_listing', { p: patch }))
+    },
+    async findGroups(query) {
+      return check(await db.rpc('find_groups', { p_query: query || null }))
+    },
+    async requestJoin(groupId, token, name, note) {
+      check(await db.rpc('request_join', { p_group: groupId, p_token: token, p_name: name, p_note: note || null }))
+      this.kickPush()
+    },
+    async myRequests(token) {
+      return check(await db.rpc('my_requests', { p_token: token }))
+    },
+    async cancelRequest(token, id) {
+      check(await db.rpc('cancel_request', { p_token: token, p_id: id }))
+    },
+    async adminRequests() {
+      return check(await db.rpc('admin_requests'))
+    },
+    async answerRequest(id, ok, name = null) {
+      check(await db.rpc('answer_request', { p_id: id, p_ok: ok, p_name: name }))
+      if (ok) this.kickPush()
     },
   }
 }

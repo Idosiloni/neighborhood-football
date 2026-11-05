@@ -32,6 +32,7 @@ export default function GroupSwitcher({ label, className = '' }) {
               </button>
             ))}
             <a className="btn ghost" href="#/join" onClick={() => setOpen(false)}>{t('onboarding.groups.join')}</a>
+            <a className="btn ghost" href="#/find" onClick={() => setOpen(false)}>{t('onboarding.groups.find')}</a>
             <a className="btn ghost" href="#/new" onClick={() => setOpen(false)}>{t('onboarding.groups.create')}</a>
           </div>
         </Sheet>

@@ -75,4 +75,17 @@ export default {
     title: 'One moment…',
     text: 'The app is being updated. Try again in a few minutes.',
   },
+
+  // Notifications on the phone.
+  push: {
+    title: 'Notifications',
+    text: 'A reminder the day before the game (how many are in and how many are missing), and a note when someone new joins, to rate them. Turn off any time.',
+    toggle: 'Notifications from this group',
+    install: 'On iPhone, notifications only work from the app on the home screen: Share → "Add to Home Screen", then turn them on here.',
+    blocked: "Notifications are blocked in the phone's settings. You can allow them there, in the site's or app's settings.",
+    askTitle: 'A reminder the day before the game?',
+    askText: 'A short note on your phone: how many are in and how many are missing. No spam.',
+    turnOn: 'Turn on',
+    requests: { one: '🙋 1 join request waiting', other: '🙋 {count} join requests waiting' },
+  },
 }

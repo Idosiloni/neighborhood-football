@@ -12,6 +12,7 @@ import Avatar from '../components/Avatar'
 import Icon from '../components/Icon'
 import InviteButton from '../components/InviteButton'
 import SignupCard from '../components/SignupCard'
+import NotifyCard from '../components/NotifyCard'
 import InviteCard from '../components/InviteCard'
 import GroupSwitcher from '../components/GroupSwitcher'
 import { unplaced } from '../lib/placement'
@@ -33,15 +34,16 @@ export default function Home() {
   const { data, reload } = useLoad(async () => {
     const me = code ? await api.getVoter(code).catch(() => null) : null
     if (!ready) return { me }
-    const [players, night, history, myVotes, cats] = await Promise.all([
+    const [players, night, history, myVotes, cats, requests] = await Promise.all([
       api.listPlayers(),
       api.getNight(day),
       api.getHistory(),
       me ? api.myMvpVotes(code).catch(() => []) : [],
       me && opts.rating === 'attrs' ? api.attrCards().catch(() => null) : null,
+      me?.is_admin && api.adminRequests ? api.adminRequests().catch(() => []) : [],
     ])
     const attendance = night ? await api.listAttendance(night.id) : []
-    return { me, players, night, attendance, history, myVotes, cats }
+    return { me, players, night, attendance, history, myVotes, cats, requests }
   }, [ready, code, day, opts.rating])
   useLiveUpdates(reload)
 
@@ -127,6 +129,7 @@ export default function Home() {
       )}
 
       {ready && <SignupCard />}
+      {me && ready && <NotifyCard compact />}
 
       {view?.toVote && opts.mvp && (
         <a className="card cta-card mvp-cta" href={`#/match/${view.toVote.id}`}>
@@ -134,6 +137,13 @@ export default function Home() {
             <strong>{t('home.mvpAsk', { num: view.toVote.num })}</strong>
             <p className="muted">{t('home.mvpText')}</p>
           </div>
+          <Icon name="forward" />
+        </a>
+      )}
+
+      {data?.requests?.length > 0 && (
+        <a className="card cta-card" href="#/admin/links">
+          <div><strong>{t('home.push.requests', { count: data.requests.length })}</strong></div>
           <Icon name="forward" />
         </a>
       )}

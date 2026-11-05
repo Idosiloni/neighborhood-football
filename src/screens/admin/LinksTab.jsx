@@ -3,6 +3,7 @@ import { api } from '../../data'
 import Avatar from '../../components/Avatar'
 import Icon from '../../components/Icon'
 import InviteCard from '../../components/InviteCard'
+import { ListingCard, RequestsCard } from './Listing'
 import { t } from '../../i18n'
 import Loading from '../../components/Loading'
 
@@ -11,7 +12,7 @@ const linkFor = (code) => `${window.location.origin}${window.location.pathname}#
 // The WhatsApp message with a player's personal link. group: the group's name, if it has one.
 const messageFor = (name, code, group) => t('admin.links.message', { name, group: group || t('admin.links.theGroup'), link: linkFor(code) })
 
-export default function LinksTab({ players, group }) {
+export default function LinksTab({ players, group, reload }) {
   const [codes, setCodes] = useState()
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(null)
@@ -37,7 +38,9 @@ export default function LinksTab({ players, group }) {
 
   return (
     <section className="stack">
+      <RequestsCard onChange={reload} />
       <InviteCard canRenew />
+      <ListingCard group={group} reload={reload} />
       {/* Rarely needed, so folded away: resending someone their personal link. */}
       <details className="card fold">
         <summary><strong>{t('admin.links.lostTitle')}</strong></summary>

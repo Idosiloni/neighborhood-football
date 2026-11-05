@@ -81,6 +81,8 @@ export default {
     step3b: 'At the field,',
     step3: '{b} mark who showed up and the app splits you into two even teams, with a clock, goals and stats.',
     personalCode: 'I have a personal code',
+    find: '🔎 Looking for a group?',
+    findHint: 'Groups open to new players, by city or pitch. Send a request and the admin lets you in.',
   },
 
   hello: {
@@ -215,6 +217,7 @@ export default {
     title: 'My groups',
     join: '📨 Join another group',
     create: '🆕 Start a new group',
+    find: '🔎 Find a group near you',
   },
   // One-tap sign-up from the group's link (no personal link).
   quick: {
@@ -227,5 +230,38 @@ export default {
     off: 'This group signs up in the app, with a personal link.',
     joinInstead: 'Join the group',
     notListed: 'Not on the list? Join the group',
+  },
+
+  // Finding a group by city and asking to join.
+  find: {
+    title: 'Find a group',
+    sub: 'Groups whose admins opened them to new players',
+    placeholder: 'City or pitch, e.g. Hod HaSharon',
+    search: 'Search',
+    looking: 'Players needed this week',
+    size: '{n} a side',
+    players: { one: '1 player', other: '{count} players' },
+    yours: 'Already yours',
+    noneYet: 'No open groups here yet',
+    noneHere: 'No open group found',
+    noneText: 'Try another city, or open a new group and invite friends.',
+    myRequests: 'My requests',
+    status: { pending: 'Waiting for the admin', approved: 'Approved! ✓', declined: 'Not approved' },
+    enter: 'Enter the group',
+    cancel: 'Cancel',
+    requestText: "The group's admins get your request. Once they say yes, the group shows up here and you're in with one tap. No phone number is shared.",
+    name: 'Your name in the group',
+    note: 'A few words (optional)',
+    notePlaceholder: 'e.g. I play defense, can go in goal',
+    send: 'Send request',
+    errors: {
+      alreadyIn: 'Already approved. Enter from "My requests".',
+      declined: 'Your request to this group was not approved.',
+      tooMany: 'Too many requests waiting right now. Try again tomorrow.',
+      notListed: 'This group is no longer open to new players.',
+      nameRequired: 'A name is needed.',
+      storage: "This browser doesn't keep data (private mode?), so it can't wait for an answer.",
+      failed: "Didn't work. Try again.",
+    },
   },
 }

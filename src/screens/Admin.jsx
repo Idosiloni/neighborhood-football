@@ -13,9 +13,9 @@ const TABS = ['players', 'links', 'ranking', 'game']
 
 // The group's admins (whoever opened it, and whoever they made admin) manage it here,
 // recognized by their personal code like every other player.
-export default function Admin() {
+export default function Admin({ tab: first }) {
   const [admin, setAdmin] = useState()
-  const [tab, setTab] = useState('players')
+  const [tab, setTab] = useState(TABS.includes(first) ? first : 'players')
   const [players, setPlayers] = useState([])
   const [group, setGroup] = useState(null)
 
@@ -53,7 +53,7 @@ export default function Admin() {
         ))}
       </nav>
       {tab === 'players' && <PlayersTab players={players} reload={reload} />}
-      {tab === 'links' && <LinksTab players={players} group={group} />}
+      {tab === 'links' && <LinksTab players={players} group={group} reload={reload} />}
       {tab === 'ranking' && <RankingTab players={players} />}
       {tab === 'game' && <GameTab group={group} reload={reload} />}
     </main>

@@ -9,6 +9,7 @@ import ProfileForm from '../components/ProfileForm'
 import NeedsUpdate from '../components/NeedsUpdate'
 import Icon from '../components/Icon'
 import { CardBody } from './PlayerCard'
+import NotifyCard from '../components/NotifyCard'
 import InviteButton from '../components/InviteButton'
 import GroupSwitcher from '../components/GroupSwitcher'
 import MyLink from '../components/MyLink'
@@ -90,6 +91,7 @@ export default function Me({ edit = false }) {
       {me.is_admin && <a className="btn ghost" href="#/admin"><Icon name="gear" size={18} /> {t('onboarding.me.manage')}</a>}
       <MyLink code={code} admin={me.is_admin} />
       <GroupSwitcher label={t('onboarding.me.myGroups')} className="on-light" />
+      <NotifyCard />
       <SoundToggle />
       <LanguagePicker />
       <TextSizePicker />

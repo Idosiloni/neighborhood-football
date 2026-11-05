@@ -85,9 +85,9 @@ test('schema: can be run again (third time) without errors', async () => {
   await db.exec(SCHEMA)
 })
 
-test('schema: schema_version() = 8 for anyone', async () => {
-  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 8)
-  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 8)
+test('schema: schema_version() = 9 for anyone', async () => {
+  assert.equal((await as(db, 'anon', 'select public.schema_version() as v')).rows[0].v, 9)
+  assert.equal((await as(db, 'other', 'select public.schema_version() as v')).rows[0].v, 9)
 })
 
 test('schema: no table sends its rows over realtime (only content-free pings)', async () => {
@@ -1015,13 +1015,13 @@ test('join code: only the admin replaces it; the old link stops working', async 
   assert.ok(!(await join(fresh.toUpperCase(), 'Another')).error)
 })
 
-test('schema: running it again keeps groups and join codes; schema_version still 8', async () => {
+test('schema: running it again keeps groups and join codes; schema_version still 9', async () => {
   const jc = await joinCode()
   const groups = await count(db, 'select count(*)::int as n from public.groups')
   await db.exec(SCHEMA)
   assert.equal(await joinCode(), jc)
   assert.equal(await count(db, 'select count(*)::int as n from public.groups'), groups)
-  assert.equal((await one(db, 'select public.schema_version() as v')).v, 8)
+  assert.equal((await one(db, 'select public.schema_version() as v')).v, 9)
 })
 
 // ───────────── Several positions per player ─────────────
@@ -1252,7 +1252,7 @@ test('upgrade: v1 data (players, codes, ballots, ratings) survives the new schem
   assert.deepEqual((await one(up, 'select positions, can_gk from public.players where id = $1', [pid.d])), { positions: ['gk'], can_gk: true })
   assert.equal(await count(up, 'select count(*)::int as n from public.ballots where moved is null'), 0)
   assert.deepEqual((await one(up, 'select positions from public.players where id = $1', [pid.a])).positions, [])
-  assert.equal((await one(up, 'select public.schema_version() as v')).v, 8)
+  assert.equal((await one(up, 'select public.schema_version() as v')).v, 9)
   // groups from before options existed played in Hebrew, and keep it
   assert.deepEqual((await one(up, 'select options from public.groups')).options, { lang: 'he' })
   assert.equal(await count(up, 'select count(*)::int as n from public.groups'), 1)
@@ -1630,4 +1630,133 @@ test('categories: a group rating by categories makes teams from them (others 50)
   assert.ok((await as(db, MEMBER, 'select * from public.attr_rating_status()')).error)
   await db.query(`update public.groups set options = '{}' where id = $1`, [G.id])
   await db.query('delete from public.attr_ratings')
+})
+
+// ═════════════ Version 9: notifications and finding a group ═════════════
+
+const ndb = await newDb()
+await ndb.exec(SCHEMA)
+const NG = await newGroup(ndb, 'N')
+const nPlayer = async (name, extra = '') => {
+  const id = (await one(ndb, `insert into public.players (group_id, name, claimed_at) values ($1, $2, ${extra || 'now()'}) returning id`, [NG.id, name])).id
+  return { id, code: (await one(ndb, 'select code from public.player_codes where player_id = $1', [id])).code }
+}
+const SUB = ['https://push.example/abc', 'p'.repeat(87), 'a'.repeat(22)]
+const outbox = async (where = 'true') => (await ndb.query(`select p.name, o.tag, o.body, o.url from public.push_outbox o join public.players p on p.id = o.player_id where ${where} order by p.name`)).rows
+
+test('push: a player saves this phone, checks it and removes it; nobody reads subscriptions or the outbox', async () => {
+  const a = await nPlayer('na')
+  assert.ok(!(await as(ndb, { code: a.code }, 'select public.save_push($1, $2, $3, $4)', [a.code, ...SUB])).error)
+  assert.equal((await as(ndb, 'anon', 'select public.has_push($1, $2) as x', [a.code, SUB[0]])).rows[0].x, true)
+  assert.equal((await as(ndb, 'anon', 'select public.has_push($1, $2) as x', ['nope', SUB[0]])).rows[0].x, false)
+  assert.match((await as(ndb, 'anon', 'select public.save_push($1, $2, $3, $4)', [a.code, 'http://bad', 'x', 'y'])).error, /invalid subscription/)
+  assert.match((await as(ndb, 'anon', 'select public.save_push($1, $2, $3, $4)', ['nope', ...SUB])).error, /invalid code/)
+  for (const t of ['push_subs', 'push_outbox']) assert.ok((await as(ndb, { code: a.code }, `select * from public.${t}`)).error)
+  for (const f of ['push_take(5)', `push_gone(array['x'])`]) assert.ok((await as(ndb, 'admin', `select * from public.${f}`)).error)
+  await as(ndb, 'anon', 'select public.drop_push($1, $2)', [a.code, SUB[0]])
+  assert.equal((await as(ndb, 'anon', 'select public.has_push($1, $2) as x', [a.code, SUB[0]])).rows[0].x, false)
+  await as(ndb, 'anon', 'select public.save_push($1, $2, $3, $4)', [a.code, ...SUB])
+})
+
+test('push: someone joins → the others with notifications are asked to rate (not the newcomer, not twice)', async () => {
+  await as(ndb, 'anon', 'select public.join_team($1, $2, null, null, null, false, null)', [NG.joinCode, 'Dana'])
+  let rows = await outbox(`o.tag like 'joined:%'`)
+  assert.deepEqual(rows.map((r) => r.name), ['na'])
+  assert.match(rows[0].body, /Dana/)
+  assert.equal(rows[0].url, '#/place')
+  // Added by the admin (no push), then claimed from the link (push).
+  const k = await nPlayer('Kobi', 'null')
+  assert.equal((await outbox(`o.body like '%Kobi%'`)).length, 0)
+  await as(ndb, 'anon', 'select public.claim_player($1, $2, null, null, null, false, null)', [NG.joinCode, k.id])
+  assert.equal((await outbox(`o.body like '%Kobi%'`)).length, 1)
+  // A group rated by the admins' stars: only admins hear about it.
+  await ndb.query(`update public.groups set options = '{"rating": "admin"}' where id = $1`, [NG.id])
+  await as(ndb, 'anon', 'select public.join_team($1, $2, null, null, null, false, null)', [NG.joinCode, 'Eli'])
+  assert.equal((await outbox(`o.body like '%Eli%'`)).length, 0) // na isn't an admin, boss has no phone saved
+  await ndb.query(`update public.groups set options = '{}' where id = $1`, [NG.id])
+})
+
+test('push: the reminder comes 24–20 hours before kickoff, says who is in and what is missing, once', async () => {
+  // Thursday 21:00 in Israel; "now" is Wednesday 23:00 (22 hours before).
+  await ndb.query(`update public.groups set weekday = 4, kickoff = '21:00', team_size = 3 where id = $1`, [NG.id])
+  const now = '2026-11-11 23:00:00+02'
+  const b = await nPlayer('nb')
+  await ndb.query('insert into public.push_subs (player_id, endpoint, p256dh, auth) values ($1, $2, $3, $4)', [b.id, 'https://push.example/b', 'p', 'a'])
+  const night = (await one(ndb, `insert into public.nights (group_id, day) values ($1, '2026-11-12') returning id`, [NG.id])).id
+  const na = (await one(ndb, `select id from public.players where name = 'na'`)).id
+  await ndb.query('insert into public.attendance (night_id, player_id) values ($1, $2)', [night, na])
+  await ndb.query('select private.queue_reminders($1)', ['2026-11-11 19:00:00+02']) // 26 hours before: nothing yet
+  assert.equal((await outbox(`o.tag like 'remind:%'`)).length, 0)
+  await ndb.query('select private.queue_reminders($1)', [now])
+  await ndb.query('select private.queue_reminders($1)', [now])
+  const rows = await outbox(`o.tag = 'remind:2026-11-12'`)
+  assert.deepEqual(rows.map((r) => r.name), ['na', 'nb'])
+  assert.match(rows[0].body, /יש לך מקום ✓ רשומים 1, חסרים עוד 5/)
+  assert.match(rows[1].body, /^רשומים 1, חסרים עוד 5\. לחיצה להרשמה$/)
+  // A cancelled week: no reminder.
+  await ndb.query(`delete from public.push_outbox where tag like 'remind:%'`)
+  assert.ok(!(await as(ndb, 'admin', 'update public.nights set cancelled = true where id = $1', [night])).error)
+  await ndb.query('select private.queue_reminders($1)', [now])
+  assert.equal((await outbox(`o.tag like 'remind:%'`)).length, 0)
+})
+
+test('push: the sender takes each message once, with the group in the link; gone phones are removed', async () => {
+  const sent = (await ndb.query('select * from public.push_take(100)')).rows
+  assert.ok(sent.length >= 2)
+  assert.ok(sent.every((r) => r.url.startsWith(`/?g=${NG.id}#/`)))
+  assert.equal((await ndb.query('select * from public.push_take(100)')).rows.length, 0)
+  await ndb.query(`select public.push_gone(array['https://push.example/b'])`)
+  assert.equal(await count(ndb, `select count(*)::int as n from public.push_subs where endpoint = 'https://push.example/b'`), 0)
+})
+
+test('listing: only admins list the group; anyone finds listed groups (no players, no codes), looking first', async () => {
+  const na = { code: (await one(ndb, `select c.code from public.player_codes c join public.players p on p.id = c.player_id where p.name = 'na'`)).code }
+  assert.match((await as(ndb, na, `select public.set_listing('{"listed": true}')`)).error, /not allowed/)
+  assert.equal((await as(ndb, 'anon', 'select * from public.find_groups(null)')).rows.length, 0)
+  const r = (await as(ndb, 'admin', `select public.set_listing('{"listed": true, "city": " הוד השרון ", "about": "כיף", "looking": true}') as x`)).rows[0].x
+  assert.equal(r.city, 'הוד השרון')
+  assert.ok(r.looking_until)
+  assert.match((await as(ndb, 'admin', `select public.set_listing(jsonb_build_object('about', repeat('x', 141)))`)).error, /invalid listing/)
+  const found = (await as(ndb, 'anon', 'select * from public.find_groups($1)', ['הוד'])).rows
+  assert.equal(found.length, 1)
+  assert.equal(found[0].looking, true)
+  assert.deepEqual(Object.keys(found[0]).sort(), ['about', 'city', 'id', 'kickoff', 'lang', 'looking', 'name', 'players', 'team_size', 'venue', 'weekday'])
+  assert.equal((await as(ndb, 'anon', 'select * from public.find_groups($1)', ['תל אביב'])).rows.length, 0)
+  assert.equal((await as(ndb, 'anon', 'select * from public.find_groups($1)', ['%'])).rows.length, 0) // no wildcards
+})
+
+test('join requests: ask a listed group, the admin lets in or says no, the phone gets its code', async () => {
+  const tok = 'tok-' + 'x'.repeat(20)
+  const other = await newGroup(ndb, 'Closed', { adminName: 'cboss', main: false })
+  assert.match((await as(ndb, 'anon', 'select public.request_join($1, $2, $3)', [other.id, tok, 'Rami'])).error, /not listed/)
+  assert.match((await as(ndb, 'anon', 'select public.request_join($1, $2, $3)', [NG.id, 'short', 'Rami'])).error, /invalid token/)
+  assert.ok(!(await as(ndb, 'anon', 'select public.request_join($1, $2, $3, $4)', [NG.id, tok, 'Rami', 'שוער'])).error)
+  assert.ok(!(await as(ndb, 'anon', 'select public.request_join($1, $2, $3, $4)', [NG.id, tok, 'Rami L', 'שוער'])).error) // again: updated
+  let mine = (await as(ndb, 'anon', 'select * from public.my_requests($1)', [tok])).rows
+  assert.equal(mine.length, 1)
+  assert.equal(mine[0].status, 'pending')
+  assert.equal(mine[0].code, null)
+  assert.equal((await as(ndb, 'anon', 'select * from public.my_requests($1)', ['y'.repeat(20)])).rows.length, 0)
+  const na = { code: (await one(ndb, `select c.code from public.player_codes c join public.players p on p.id = c.player_id where p.name = 'na'`)).code }
+  assert.ok((await as(ndb, na, 'select * from public.admin_requests()')).error)
+  const reqs = (await as(ndb, 'admin', 'select * from public.admin_requests()')).rows
+  assert.deepEqual(reqs.map((x) => [x.name, x.note]), [['Rami L', 'שוער']])
+  assert.match((await as(ndb, 'admin', 'select public.answer_request($1, true, $2)', [reqs[0].id, 'na'])).error, /name taken/)
+  assert.ok(!(await as(ndb, 'admin', 'select public.answer_request($1, true)', [reqs[0].id])).error)
+  mine = (await as(ndb, 'anon', 'select * from public.my_requests($1)', [tok])).rows
+  assert.equal(mine[0].status, 'approved')
+  const voter = (await as(ndb, 'anon', 'select * from public.voter_by_code($1)', [mine[0].code])).rows[0]
+  assert.equal(voter.name, 'Rami L')
+  assert.match((await as(ndb, 'anon', 'select public.request_join($1, $2, $3)', [NG.id, tok, 'Rami'])).error, /already in/)
+  // Saying no; asking again after a no is refused.
+  const tok2 = 'tok2-' + 'x'.repeat(20)
+  await as(ndb, 'anon', 'select public.request_join($1, $2, $3)', [NG.id, tok2, 'Spam'])
+  const spam = (await as(ndb, 'admin', 'select * from public.admin_requests()')).rows[0]
+  await as(ndb, 'admin', 'select public.answer_request($1, false)', [spam.id])
+  assert.match((await as(ndb, 'anon', 'select public.request_join($1, $2, $3)', [NG.id, tok2, 'Spam'])).error, /declined/)
+  // Nobody reads the requests table directly; another group's admin can't answer.
+  assert.ok((await as(ndb, 'admin', 'select * from public.join_requests')).error)
+  await as(ndb, 'anon', 'select public.request_join($1, $2, $3)', [NG.id, 'tok3-' + 'x'.repeat(20), 'Avi'])
+  const avi = (await as(ndb, 'admin', 'select * from public.admin_requests()')).rows[0]
+  assert.match((await as(ndb, { code: other.adminCode }, 'select public.answer_request($1, true)', [avi.id])).error, /not found/)
 })

@@ -1,4 +1,4 @@
--- Neighborhood football, schema version 8: many groups in one database, each with its own options and rules.
+-- Neighborhood football, schema version 9: many groups in one database, each with its own options and rules.
 -- Each group has its own players, game nights, matches, ratings and join link.
 -- The player who opens a group is its admin (and may make other players admins too).
 --
@@ -441,7 +441,7 @@ $$;
 create or replace function public.schema_version()
 returns int
 language sql immutable security definer set search_path = ''
-as $$ select 8 $$;
+as $$ select 9 $$;
 
 -- New rows land in the caller's group unless the server sets it.
 alter table public.players alter column group_id set default public.my_group();
@@ -1864,6 +1864,417 @@ begin
   group by p.id;
 end $$;
 
+-- ───────────── Notifications on the phone (version 9) ─────────────
+-- A phone that allowed notifications saves its push subscription for the player of the open group
+-- (one phone in two groups = two rows, same endpoint). What to send waits in push_outbox; the
+-- "push" Edge Function (supabase/functions/push) takes it with push_take() and sends it.
+-- Nobody reads either table through the API: only the functions below.
+
+create table if not exists public.push_subs (
+  player_id uuid not null references public.players on delete cascade,
+  endpoint text not null check (endpoint like 'https://%' and length(endpoint) <= 1000),
+  p256dh text not null check (length(p256dh) <= 200),
+  auth text not null check (length(auth) <= 100),
+  created_at timestamptz not null default now(),
+  primary key (player_id, endpoint)
+);
+
+create table if not exists public.push_outbox (
+  id bigint generated always as identity primary key,
+  player_id uuid not null references public.players on delete cascade,
+  group_id uuid not null references public.groups on delete cascade,
+  title text not null,
+  body text not null,
+  url text not null default '#/',
+  tag text not null,                 -- one message per player and tag (e.g. 'remind:2026-11-12')
+  created_at timestamptz not null default now(),
+  sent_at timestamptz
+);
+create unique index if not exists push_outbox_tag on public.push_outbox (player_id, tag);
+
+alter table public.push_subs enable row level security;
+alter table public.push_outbox enable row level security;
+revoke all on public.push_subs, public.push_outbox from public, anon, authenticated;
+
+-- The player behind a personal code (active), or null.
+create or replace function private.player_of(p_code text)
+returns uuid
+language sql stable set search_path = ''
+as $$
+  select p.id from public.player_codes c join public.players p on p.id = c.player_id and p.active
+  where c.code = lower(trim(p_code));
+$$;
+
+-- This phone wants notifications for the player of this code. At most 10 phones per player.
+create or replace function public.save_push(p_code text, p_endpoint text, p_p256dh text, p_auth text)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_player uuid := private.player_of(p_code);
+begin
+  if v_player is null then
+    raise exception 'invalid code';
+  end if;
+  insert into public.push_subs (player_id, endpoint, p256dh, auth) values (v_player, p_endpoint, p_p256dh, p_auth)
+  on conflict (player_id, endpoint) do update set p256dh = excluded.p256dh, auth = excluded.auth, created_at = now();
+  delete from public.push_subs s
+  where s.player_id = v_player
+    and s.endpoint not in (select x.endpoint from public.push_subs x where x.player_id = v_player order by x.created_at desc limit 10);
+exception when check_violation then
+  raise exception 'invalid subscription';
+end $$;
+
+create or replace function public.drop_push(p_code text, p_endpoint text)
+returns void
+language sql security definer set search_path = ''
+as $$
+  delete from public.push_subs s where s.player_id = private.player_of(p_code) and s.endpoint = p_endpoint;
+$$;
+
+create or replace function public.has_push(p_code text, p_endpoint text)
+returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (select 1 from public.push_subs s where s.player_id = private.player_of(p_code) and s.endpoint = p_endpoint);
+$$;
+
+-- One message to some players of a group (only those with a phone that wants notifications).
+-- p_only: just these players; p_except: everyone but this one. Same player and tag twice = once.
+create or replace function private.queue_push(p_group uuid, p_tag text, p_title text, p_body text, p_url text,
+  p_only uuid[] default null, p_except uuid default null)
+returns void
+language sql security definer set search_path = ''
+as $$
+  insert into public.push_outbox (player_id, group_id, title, body, url, tag)
+  select p.id, p_group, p_title, p_body, coalesce(p_url, '#/'), p_tag
+  from public.players p
+  where p.group_id = p_group and p.active
+    and (p_only is null or p.id = any(p_only))
+    and p.id is distinct from p_except
+    and exists (select 1 from public.push_subs s where s.player_id = p.id)
+  on conflict (player_id, tag) do nothing;
+$$;
+
+-- Someone new in the group (joined with the link, picked a name the admin added, or was let in):
+-- the others are asked to rate him, the way the group rates.
+create or replace function private.push_joined()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  g record;
+  v_he boolean;
+  v_body text;
+  v_url text;
+begin
+  if new.claimed_at is null or not new.active or (tg_op = 'UPDATE' and old.claimed_at is not null) then
+    return null;
+  end if;
+  begin
+    select x.id, x.name, coalesce(x.options->>'rating', 'peers') as rating, coalesce(x.options->>'lang', 'he') as lang
+    into g from public.groups x where x.id = new.group_id;
+    v_he := g.lang <> 'en';
+    v_body := case when v_he then 'הצטרפות חדשה: ' || new.name || ' 👋' else new.name || ' just joined 👋' end;
+    v_body := v_body || case g.rating
+      when 'peers' then case when v_he then ' זה הזמן לעדכן את הסידור.' else ' Time to update your ranking.' end
+      when 'attrs' then case when v_he then ' זה הזמן לתת ציונים.' else ' Time to rate them.' end
+      when 'admin' then case when v_he then ' זה הזמן לתת כוכבים.' else ' Time to give them stars.' end
+      else '' end;
+    v_url := case g.rating when 'peers' then '#/place' when 'attrs' then '#/rate' when 'admin' then '#/admin' else '#/' end;
+    perform private.queue_push(g.id, 'joined:' || new.id::text, g.name, v_body, v_url,
+      case when g.rating = 'admin' then array(select p.id from public.players p where p.group_id = g.id and p.is_admin) end,
+      new.id);
+  exception when others then
+    null; -- a notification must never stop someone from joining
+  end;
+  return null;
+end $$;
+
+drop trigger if exists players_push_joined on public.players;
+create trigger players_push_joined after insert or update of claimed_at on public.players
+  for each row execute function private.push_joined();
+
+-- The day before each game (24 to 20 hours before kickoff, Israel time): who signed up and how many
+-- are missing, to everyone with notifications on (each sees whether they are in). Not for cancelled weeks.
+create or replace function private.queue_reminders(p_now timestamptz default now())
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_local timestamp := p_now at time zone 'Asia/Jerusalem';
+  g record;
+  v_day date;
+  v_kick timestamp;
+  v_night uuid;
+  v_in uuid[];
+  v_n int;
+  v_need int;
+  v_he boolean;
+  v_title text;
+begin
+  for g in
+    select x.id, x.name, x.weekday, x.kickoff, x.team_size, coalesce(x.options->>'lang', 'he') as lang
+    from public.groups x
+    where exists (select 1 from public.players p join public.push_subs s on s.player_id = p.id where p.group_id = x.id and p.active)
+  loop
+    v_day := v_local::date + ((g.weekday - extract(dow from v_local)::int + 7) % 7);
+    v_kick := v_day + g.kickoff::time;
+    if v_local < v_kick - interval '24 hours' or v_local >= v_kick - interval '20 hours' then
+      v_day := v_day + 7; -- maybe the game is tomorrow and today is game day too: check next week's
+      v_kick := v_day + g.kickoff::time;
+      continue when v_local < v_kick - interval '24 hours' or v_local >= v_kick - interval '20 hours';
+    end if;
+    select n.id into v_night from public.nights n where n.group_id = g.id and n.day = v_day;
+    continue when exists (select 1 from public.nights n where n.id = v_night and n.cancelled);
+    v_in := array(select a.player_id from public.attendance a where a.night_id = v_night);
+    v_n := coalesce(array_length(v_in, 1), 0);
+    v_need := greatest(0, 2 * g.team_size - v_n);
+    v_he := g.lang <> 'en';
+    v_title := g.name || case when v_he then ' · מחר ב-' else ' · tomorrow at ' end || g.kickoff;
+    perform private.queue_push(g.id, 'remind:' || v_day::text, v_title,
+      case when v_he then 'יש לך מקום ✓ רשומים ' || v_n || case when v_need > 0 then ', חסרים עוד ' || v_need else ', יש משחק!' end
+           else 'You''re in ✓ ' || v_n || ' signed up' || case when v_need > 0 then ', ' || v_need || ' more needed' else ', game on!' end end,
+      '#/', v_in);
+    perform private.queue_push(g.id, 'remind:' || v_day::text, v_title,
+      case when v_he then 'רשומים ' || v_n || case when v_need > 0 then ', חסרים עוד ' || v_need else '' end || '. לחיצה להרשמה'
+           else v_n || ' signed up' || case when v_need > 0 then ', ' || v_need || ' more needed' else '' end || '. Tap to sign up' end,
+      '#/', array(select p.id from public.players p where p.group_id = g.id and p.active and not (p.id = any(v_in))));
+  end loop;
+end $$;
+
+-- For the sender only (the Edge Function, with the service role): queues the reminders that are due,
+-- then hands out what waits (each message once; older than a day is dropped) with every phone to send it to.
+-- url: the screen to open, with the group (?g=) so a phone in two groups opens the right one.
+create or replace function public.push_take(p_limit int default 300)
+returns table (id bigint, endpoint text, p256dh text, auth text, title text, body text, url text, tag text)
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform private.queue_reminders();
+  delete from public.push_outbox o where o.created_at < now() - interval '14 days';
+  return query
+  with picked as (
+    select o.id from public.push_outbox o
+    where o.sent_at is null and o.created_at > now() - interval '1 day'
+    order by o.id limit p_limit
+    for update skip locked
+  ), marked as (
+    update public.push_outbox o set sent_at = now() from picked where o.id = picked.id
+    returning o.id, o.player_id, o.group_id, o.title, o.body, o.url, o.tag
+  )
+  select m.id, s.endpoint, s.p256dh, s.auth, m.title, m.body, '/?g=' || m.group_id::text || m.url, m.tag
+  from marked m join public.push_subs s on s.player_id = m.player_id;
+end $$;
+
+-- Phones the push service says are gone (uninstalled, notifications turned off).
+create or replace function public.push_gone(p_endpoints text[])
+returns void
+language sql security definer set search_path = ''
+as $$
+  delete from public.push_subs s where s.endpoint = any(p_endpoints);
+$$;
+
+-- ───────────── Finding a group (version 9) ─────────────
+-- An admin may list the group so people without a group find it by city or pitch, and ask to join.
+-- Listed groups show only: name, city, pitch, day and time, team size, a line about the group,
+-- how many players, and "looking for players this week". Never players, photos or codes.
+
+alter table public.groups add column if not exists city text;
+alter table public.groups add column if not exists about text;
+alter table public.groups add column if not exists listed boolean not null default false;
+alter table public.groups add column if not exists looking_until date; -- "missing players" until this game day
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'groups_listing_valid' and conrelid = 'public.groups'::regclass) then
+    alter table public.groups add constraint groups_listing_valid check (
+      (city is null or length(trim(city)) between 1 and 40) and (about is null or length(trim(about)) between 1 and 140));
+  end if;
+end $$;
+
+-- Someone without a group asks to join a listed one. token: a random secret kept on that phone;
+-- it is the only way to see the answer (and the personal code once let in).
+create table if not exists public.join_requests (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups on delete cascade,
+  token text not null check (length(token) between 16 and 64),
+  name text not null check (length(trim(name)) between 1 and 30),
+  note text check (note is null or length(note) <= 140),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'declined')),
+  player_id uuid references public.players on delete set null,
+  created_at timestamptz not null default now(),
+  answered_at timestamptz,
+  unique (group_id, token)
+);
+alter table public.join_requests enable row level security;
+revoke all on public.join_requests from public, anon, authenticated;
+
+-- The day of the group's next game, from today (Israel time).
+create or replace function private.next_game_day(p_weekday int)
+returns date
+language sql stable set search_path = ''
+as $$
+  select (now() at time zone 'Asia/Jerusalem')::date
+         + ((p_weekday - extract(dow from now() at time zone 'Asia/Jerusalem')::int + 7) % 7);
+$$;
+
+-- Admins: listed or not, city, the line about the group, and "looking for players this week".
+-- Only the keys given change. Returns the listing.
+create or replace function public.set_listing(p jsonb)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_out jsonb;
+begin
+  if not public.is_admin() then
+    raise exception 'not allowed';
+  end if;
+  update public.groups g set
+    listed = case when p ? 'listed' then coalesce((p->>'listed')::boolean, false) else g.listed end,
+    city = case when p ? 'city' then nullif(trim(p->>'city'), '') else g.city end,
+    about = case when p ? 'about' then nullif(trim(p->>'about'), '') else g.about end,
+    looking_until = case when p ? 'looking' then
+      case when coalesce((p->>'looking')::boolean, false) then private.next_game_day(g.weekday) end
+      else g.looking_until end
+  where g.id = public.my_group()
+  returning jsonb_build_object('listed', g.listed, 'city', g.city, 'about', g.about, 'looking_until', g.looking_until)
+  into v_out;
+  return v_out;
+exception when check_violation or invalid_text_representation then
+  raise exception 'invalid listing';
+end $$;
+
+-- Anyone: the listed groups, those looking for players first. p_query matches the city, the pitch or the name.
+create or replace function public.find_groups(p_query text default null)
+returns table (id uuid, name text, city text, venue text, weekday int, kickoff text, team_size int,
+  about text, players int, looking boolean, lang text)
+language sql stable security definer set search_path = ''
+as $$
+  select g.id, g.name, g.city, g.venue, g.weekday, g.kickoff, g.team_size, g.about,
+         (select count(*)::int from public.players p where p.group_id = g.id and p.active and p.claimed_at is not null),
+         coalesce(g.looking_until >= (now() at time zone 'Asia/Jerusalem')::date, false),
+         coalesce(g.options->>'lang', 'he')
+  from public.groups g
+  where g.listed
+    and (coalesce(trim(p_query), '') = ''
+         or concat_ws(' ', g.city, g.venue, g.name) ilike '%' || replace(replace(replace(trim(p_query), '\', '\\'), '%', '\%'), '_', '\_') || '%')
+  order by 10 desc, 9 desc, g.name
+  limit 50;
+$$;
+
+-- Ask to join a listed group (again = update the name and note). The group's admins get a notification.
+create or replace function public.request_join(p_group uuid, p_token text, p_name text, p_note text default null)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  g record;
+  v_name text := trim(coalesce(p_name, ''));
+  v_old text;
+begin
+  select x.id, x.name, coalesce(x.options->>'lang', 'he') as lang into g from public.groups x where x.id = p_group and x.listed;
+  if g.id is null then
+    raise exception 'not listed';
+  end if;
+  if length(v_name) = 0 or length(v_name) > 30 then
+    raise exception 'name required';
+  end if;
+  if coalesce(length(p_token), 0) not between 16 and 64 then
+    raise exception 'invalid token';
+  end if;
+  perform pg_advisory_xact_lock(hashtext('request:' || p_group::text));
+  select r.status into v_old from public.join_requests r where r.group_id = p_group and r.token = p_token;
+  if v_old = 'approved' then
+    raise exception 'already in';
+  elsif v_old = 'declined' then
+    raise exception 'declined';
+  end if;
+  if v_old is null and (
+       (select count(*) from public.join_requests r where r.group_id = p_group and r.status = 'pending') >= 30
+       or (select count(*) from public.join_requests r where r.token = p_token and r.status = 'pending') >= 5) then
+    raise exception 'too many requests';
+  end if;
+  insert into public.join_requests (group_id, token, name, note) values (p_group, p_token, v_name, nullif(trim(p_note), ''))
+  on conflict (group_id, token) do update set name = excluded.name, note = excluded.note;
+  if v_old is null then
+    perform private.queue_push(g.id, 'request:' || p_token, g.name,
+      case when g.lang <> 'en' then 'בקשת הצטרפות: ' || v_name else 'Join request: ' || v_name end, '#/admin',
+      array(select p.id from public.players p where p.group_id = g.id and p.is_admin));
+  end if;
+end $$;
+
+-- This phone's requests (last 30 days) and, once let in, the personal code.
+create or replace function public.my_requests(p_token text)
+returns table (id uuid, group_id uuid, group_name text, status text, code text, created_at timestamptz)
+language sql stable security definer set search_path = ''
+as $$
+  select r.id, r.group_id, g.name, r.status,
+         (select c.code from public.player_codes c join public.players p on p.id = c.player_id and p.active
+          where c.player_id = r.player_id and r.status = 'approved'),
+         r.created_at
+  from public.join_requests r join public.groups g on g.id = r.group_id
+  where r.token = p_token and length(p_token) >= 16 and r.created_at > now() - interval '30 days'
+  order by r.created_at desc;
+$$;
+
+create or replace function public.cancel_request(p_token text, p_id uuid)
+returns void
+language sql security definer set search_path = ''
+as $$
+  delete from public.join_requests r where r.id = p_id and r.token = p_token and r.status = 'pending';
+$$;
+
+-- Admins: the requests waiting in their group.
+create or replace function public.admin_requests()
+returns table (id uuid, name text, note text, created_at timestamptz)
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'not allowed';
+  end if;
+  return query select r.id, r.name, r.note, r.created_at from public.join_requests r
+  where r.group_id = public.my_group() and r.status = 'pending' order by r.created_at;
+end $$;
+
+-- Admins let someone in (as a new player, under p_name if given) or say no.
+create or replace function public.answer_request(p_id uuid, p_ok boolean, p_name text default null)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  r public.join_requests;
+  v_name text;
+  v_id uuid;
+begin
+  if not public.is_admin() then
+    raise exception 'not allowed';
+  end if;
+  select * into r from public.join_requests x where x.id = p_id and x.group_id = public.my_group() and x.status = 'pending' for update;
+  if r.id is null then
+    raise exception 'not found';
+  end if;
+  if not p_ok then
+    update public.join_requests set status = 'declined', answered_at = now() where id = r.id;
+    return;
+  end if;
+  v_name := trim(coalesce(nullif(trim(p_name), ''), r.name));
+  if length(v_name) > 30 then
+    raise exception 'name required';
+  end if;
+  perform pg_advisory_xact_lock(hashtext('join:' || r.group_id::text));
+  if exists (select 1 from public.players p where p.group_id = r.group_id and p.active and lower(trim(p.name)) = lower(v_name)) then
+    raise exception 'name taken';
+  end if;
+  if (select count(*) from public.players p where p.group_id = r.group_id) >= 150 then
+    raise exception 'too many players';
+  end if;
+  insert into public.players (group_id, name, claimed_at) values (r.group_id, v_name, now()) returning id into v_id;
+  update public.join_requests set status = 'approved', answered_at = now(), player_id = v_id where id = r.id;
+end $$;
+
 -- ───────────── Who may call what ─────────────
 
 do $$
@@ -1882,7 +2293,10 @@ begin
     'public.vote_mvp(text, uuid, uuid)', 'public.mvp_tally()', 'public.my_mvp_votes(text)',
     'public.set_options(jsonb)', 'public.admin_stars()', 'public.set_stars(uuid, int)',
     'public.quick_roster(text, date)', 'public.quick_signup(text, uuid, date, boolean)',
-    'public.rate_attr(text, uuid, text, int)', 'public.my_attr_ratings(text)', 'public.attr_cards()', 'public.attr_rating_status()'
+    'public.rate_attr(text, uuid, text, int)', 'public.my_attr_ratings(text)', 'public.attr_cards()', 'public.attr_rating_status()',
+    'public.save_push(text, text, text, text)', 'public.drop_push(text, text)', 'public.has_push(text, text)',
+    'public.set_listing(jsonb)', 'public.find_groups(text)', 'public.request_join(uuid, text, text, text)',
+    'public.my_requests(text)', 'public.cancel_request(text, uuid)', 'public.admin_requests()', 'public.answer_request(uuid, boolean, text)'
   ] loop
     execute format('revoke execute on function %s from public', f);
     execute format('grant execute on function %s to anon, authenticated', f);
@@ -1890,6 +2304,13 @@ begin
   -- Trigger functions: never called directly.
   foreach f in array array['public.give_player_code()', 'public.guard_night_cancel()', 'public.guard_match_delete()'] loop
     execute format('revoke execute on function %s from public, anon, authenticated', f);
+  end loop;
+  -- The notification sender only (Supabase's service role; not there in the tests).
+  foreach f in array array['public.push_take(int)', 'public.push_gone(text[])'] loop
+    execute format('revoke execute on function %s from public, anon, authenticated', f);
+    if exists (select 1 from pg_roles where rolname = 'service_role') then
+      execute format('grant execute on function %s to service_role', f);
+    end if;
   end loop;
 end $$;
 

@@ -3,7 +3,7 @@
 // it shows only the group of this phone's open code, and only its admins manage it.
 import { computeRatings, movedCount } from '../lib/rating'
 import { minPlayers, splitTeams, suggestRotation } from '../lib/teams'
-import { GAME, pickSettings } from '../lib/dates'
+import { GAME, nextGameDay, pickSettings, today } from '../lib/dates'
 import { getMyCode, setMyCode } from '../lib/identity'
 import { fromPositions, positionsOf } from '../lib/positions'
 import { compareNames, language, t } from '../i18n'
@@ -615,6 +615,89 @@ export function createMockApi() {
       g.join_code = newJoinCode()
       save()
       return g.join_code
+    },
+    // ── notifications (version 9): the demo keeps the wish, sends nothing ──
+    async savePush(code, sub) {
+      const p = playerByCode(code)
+      if (!p) throw new Error('invalid code')
+      state.push = [...(state.push ?? []).filter((x) => !(x.player_id === p.id && x.endpoint === sub.endpoint)), { player_id: p.id, endpoint: sub.endpoint }]
+      save()
+    },
+    async dropPush(code, endpoint) {
+      const p = playerByCode(code)
+      state.push = (state.push ?? []).filter((x) => !(x.player_id === p?.id && x.endpoint === endpoint))
+      save()
+    },
+    async hasPush(code, endpoint) {
+      const p = playerByCode(code)
+      return (state.push ?? []).some((x) => x.player_id === p?.id && x.endpoint === endpoint)
+    },
+    kickPush() {},
+
+    // ── finding a group (version 9), same rules as the database ──
+    async setListing(patch) {
+      if (!isAdmin()) throw new Error('not allowed')
+      const g = state.groups.find((x) => x.id === myGroupId())
+      if ('listed' in patch) g.listed = Boolean(patch.listed)
+      for (const k of ['city', 'about']) if (k in patch) g[k] = patch[k]?.trim() || null
+      if ((g.city?.length ?? 0) > 40 || (g.about?.length ?? 0) > 140) throw new Error('invalid listing')
+      if ('looking' in patch) g.looking_until = patch.looking ? nextGameDay(new Date(), settingsOf(g)) : null
+      save()
+      return { listed: Boolean(g.listed), city: g.city ?? null, about: g.about ?? null, looking_until: g.looking_until ?? null }
+    },
+    async findGroups(query) {
+      const q = query?.trim().toLowerCase() ?? ''
+      const day = today()
+      return state.groups
+        .filter((g) => g.listed && (!q || [g.city, g.venue, g.name].filter(Boolean).join(' ').toLowerCase().includes(q)))
+        .map((g) => ({
+          id: g.id, name: g.name, city: g.city ?? null, venue: g.venue ?? null, about: g.about ?? null,
+          ...pickSettings(settingsOf(g)), lang: g.options?.lang ?? 'he',
+          players: state.players.filter((p) => p.group_id === g.id && p.active && p.claimed_at).length,
+          looking: Boolean(g.looking_until && g.looking_until >= day),
+        }))
+        .sort((x, y) => y.looking - x.looking || y.players - x.players)
+    },
+    async requestJoin(groupId, token, name, note) {
+      const g = state.groups.find((x) => x.id === groupId && x.listed)
+      if (!g) throw new Error('not listed')
+      if (!name?.trim()) throw new Error('name required')
+      state.requests ??= []
+      const old = state.requests.find((r) => r.group_id === groupId && r.token === token)
+      if (old?.status === 'approved') throw new Error('already in')
+      if (old?.status === 'declined') throw new Error('declined')
+      if (old) Object.assign(old, { name: name.trim(), note: note?.trim() || null })
+      else state.requests.push({ id: newId(), group_id: groupId, token, name: name.trim(), note: note?.trim() || null, status: 'pending', player_id: null, created_at: now() })
+      save()
+    },
+    async myRequests(token) {
+      return (state.requests ?? []).filter((r) => r.token === token).map((r) => ({
+        id: r.id, group_id: r.group_id, group_name: state.groups.find((g) => g.id === r.group_id)?.name, status: r.status,
+        code: r.status === 'approved' ? state.codes[r.player_id] ?? null : null, created_at: r.created_at,
+      }))
+    },
+    async cancelRequest(token, id) {
+      state.requests = (state.requests ?? []).filter((r) => !(r.id === id && r.token === token && r.status === 'pending'))
+      save()
+    },
+    async adminRequests() {
+      if (!isAdmin()) throw new Error('not allowed')
+      return (state.requests ?? []).filter((r) => r.group_id === myGroupId() && r.status === 'pending').map(({ id, name, note, created_at }) => ({ id, name, note, created_at }))
+    },
+    async answerRequest(id, ok, name = null) {
+      if (!isAdmin()) throw new Error('not allowed')
+      const r = (state.requests ?? []).find((x) => x.id === id && x.group_id === myGroupId() && x.status === 'pending')
+      if (!r) throw new Error('not found')
+      if (ok) {
+        const n = (name?.trim() || r.name).trim()
+        if (nameTaken(r.group_id, n)) throw new Error('name taken')
+        const pid = newId()
+        state.players.push({ id: pid, group_id: r.group_id, name: n, emoji: '⚽', photo: null, ...fromPositions([]), active: true, is_admin: false, claimed_at: now() })
+        state.codes[pid] = newCode()
+        r.player_id = pid
+      }
+      r.status = ok ? 'approved' : 'declined'
+      save()
     },
   }
 }

@@ -21,6 +21,7 @@ import Hello from './screens/Hello'
 import QuickSignup from './screens/QuickSignup'
 import RateCategories from './screens/RateCategories'
 import Week from './screens/Week'
+import Find from './screens/Find'
 import Celebration from './components/Celebration'
 import { setGroupLanguage, t, useLocale } from './i18n'
 import { optionsOf } from './lib/options'
@@ -29,7 +30,7 @@ import { useEffect } from 'react'
 import { hideSplash } from './lib/splash'
 
 // Screens that work before this phone is in any group.
-const OPEN = new Set(['v', 'vote', 'join', 'new', 'in'])
+const OPEN = new Set(['v', 'vote', 'join', 'new', 'in', 'find'])
 
 function Screen({ page, param }) {
   switch (page) {
@@ -38,7 +39,9 @@ function Screen({ page, param }) {
     case 'vote':
       return <EnterCode />
     case 'admin':
-      return <Admin />
+      return <Admin tab={param} />
+    case 'find':
+      return <Find />
     case 'tonight':
       return <Tonight />
     case 'match':

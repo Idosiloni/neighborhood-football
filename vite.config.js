@@ -11,6 +11,7 @@ export default defineConfig({
       // the saved copy is only used offline.
       workbox: {
         navigateFallback: null,
+        importScripts: ['push-sw.js'], // phone notifications (public/push-sw.js)
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.mode === 'navigate',
