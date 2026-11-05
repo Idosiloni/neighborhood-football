@@ -1,4 +1,4 @@
-# Data contract (schema version 5: group options, match rules, draws)
+# Data contract (schema version 6: group options, match rules, draws, levels)
 
 The browser app (src/data/supabaseApi.js) and the database (supabase/schema.sql) must agree on this.
 The demo (src/data/mockApi.js) mirrors it in localStorage. Tests: tests/sql.test.js (PGlite).
@@ -27,7 +27,7 @@ groups       id, name (1–40), join_code unique (6 chars a-z/2-9 without look-a
              trigger groups_check_options → private.options_valid (same rules: src/lib/options.js).
              Keys: lang 'he'|'en'; format 'rounds'|'game'; periods 1–4; break_minutes 0–30; extra_minutes 0–10;
              tie 'extra'|'penalties'|'draw'; team_a / team_b bib colors (blue, orange, red, white, black,
-             yellow, green, purple; never the same). Numbers must be whole numbers. New settings go here, not as columns.
+             yellow, green, purple; never the same); rating 'peers'|'admin'|'none'; mvp, assists, quick_signup (true/false). Numbers must be whole numbers. New settings go here, not as columns.
              match_minutes 2–120 (the length of one period).
 players      + group_id → groups (default my_group(), never changes), is_admin bool,
              nickname, claimed_at, photo ≤ 300000 chars, positions text[] ⊆ {gk,def,mid,att},
@@ -64,7 +64,15 @@ Phones listen on channel `g:<group id>` (broadcast, event `change`) and reload.
 
 ## Functions (all `security definer set search_path = ''`, executable by anon and authenticated)
 
-- `schema_version()` → 5 (4: no match rules or draws; 3: no `options`).
+- `schema_version()` → 6 (5: no levels/stars/one-tap; 4: no match rules or draws; 3: no `options`).
+- `set_options(p_patch jsonb) → jsonb` — admins only. Merges the patch into the group's options (null = remove the key,
+  back to the default) and keeps every other key. Use this, never a whole-object update.
+- `admin_stars()` / `set_stars(p_player, p_stars)` — admins only: 1–5 stars per player (null removes), in `coach_ratings`
+  (no table access for anyone). With options.rating = 'admin' they drive make_teams/suggest_rotation ((stars−1)×25, 50 if
+  unrated); 'none' = everyone 50.
+- `quick_roster(p_join, p_day) → jsonb` / `quick_signup(p_join, p_player, p_day, p_coming)` — anyone with the join code,
+  only when options.quick_signup is on, only for the group's game day from yesterday to 8 days ahead (server date).
+  Roster: `{id, name, weekday, kickoff, team_size, options, cancelled, players: [{id, name, emoji}], coming: [ids]}`.
 - `create_group(p_group, p_name, p_emoji, p_photo, p_position, p_can_gk, p_nickname, p_positions, p_settings jsonb) → text` —
   new group with a new join code; the caller becomes its first player, admin and claimed. Returns his personal code.
   p_settings (all optional): weekday, kickoff, venue, team_size, match_minutes, win_goals, options (object).

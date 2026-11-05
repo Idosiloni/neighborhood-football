@@ -136,4 +136,13 @@ export default {
 
   // ── goal sounds (in "Me") ──
   goalSounds: { stadium: '🏟️ Stadium', cheer: '🎉 Cheering crowd', fanfare: '🎺 Fanfare' },
+  // Images for the group's WhatsApp.
+  share: {
+    teams: '📤 Send the teams',
+    night: "📤 Send today's results",
+    preparing: 'Making the image…',
+    bench: 'On the bench: {names}',
+    teamsText: "⚽ Today's teams",
+    nightText: "⚽ Today's results",
+  },
 }

@@ -18,6 +18,8 @@ import { normalizeName, parseNames } from '../lib/parseList'
 import Sheet from '../components/Sheet'
 import Lineup from '../components/Lineup'
 import { play } from '../lib/sound'
+import { drawNight, drawTeams, shareImage } from '../lib/shareImages'
+import { currentGroup } from '../lib/identity'
 import { t } from '../i18n'
 
 export default function Tonight() {
@@ -164,6 +166,9 @@ function TonightBody({ day }) {
         <section className="stack">
           <h2 className="section-title">{t('match.tonightMatches')}</h2>
           {[...matches].reverse().map((m) => <MatchRow key={m.id} match={m} goals={history.goals} />)}
+          {matches.some((m) => m.status === 'finished') && (
+            <ShareButton label={t('match.share.night')} make={() => nightImage(matches, history, byId, day)} message={t('match.share.nightText')} file="results.jpg" />
+          )}
         </section>
       )}
     </>
@@ -252,6 +257,14 @@ function TeamBuilder({ night, attendance, byId, history, nextNum, teamSize, onCa
           {view === 'pitch' && groups.bench.length > 0 && (
             <p className="muted small">{t('match.waiting', { names: groups.bench.map((id) => byId[id]?.name).filter(Boolean).join(', ') })}</p>
           )}
+          <ShareButton label={t('match.share.teams')} message={t('match.share.teamsText')} file="teams.jpg"
+            make={() => drawTeams({
+              title: currentGroup()?.name ?? t('common.appName'),
+              sub: dayLabel(night?.day ?? today()),
+              teamA: groups.a.map((id) => byId[id]?.name ?? '?'),
+              teamB: groups.b.map((id) => byId[id]?.name ?? '?'),
+              bench: groups.bench.map((id) => byId[id]?.name).filter(Boolean),
+            })} />
           {state === 'error' && <p className="err">{message}</p>}
           <div className="row">
             <button className="btn ghost" onClick={() => roll(groups.bench)} disabled={state !== 'idle' && state !== 'error'}>
@@ -266,6 +279,42 @@ function TeamBuilder({ night, attendance, byId, history, nextNum, teamSize, onCa
       )}
     </section>
   )
+}
+
+// Shares an image (drawn when tapped) through the phone's share menu, WhatsApp included.
+function ShareButton({ label, make, message, file }) {
+  const [busy, setBusy] = useState(false)
+  return (
+    <button className="btn ghost" disabled={busy} onClick={async () => {
+      setBusy(true)
+      try {
+        await shareImage(await make(), file, message)
+      } finally {
+        setBusy(false)
+      }
+    }}>{busy ? t('match.share.preparing') : label}</button>
+  )
+}
+
+// Today's games (score, winner), who scored and who was MVP, for the results image.
+function nightImage(matches, history, byId, day) {
+  const done = matches.filter((m) => m.status === 'finished')
+  const ids = new Set(done.map((m) => m.id))
+  const goals = history.goals.filter((g) => ids.has(g.match_id))
+  const games = done.map((m) => {
+    const mine = goals.filter((g) => g.match_id === m.id)
+    return { num: m.num, a: mine.filter((g) => g.team === 'a').length, b: mine.filter((g) => g.team === 'b').length, winner: m.winner }
+  })
+  const count = new Map()
+  for (const g of goals) if (g.scorer && byId[g.scorer]) count.set(g.scorer, (count.get(g.scorer) ?? 0) + 1)
+  const scorers = [...count].sort((x, y) => y[1] - x[1]).slice(0, 4).map(([id, n]) => ({ name: byId[id].name, goals: n }))
+  const mvps = new Set()
+  for (const id of ids) {
+    const votes = (history.mvp ?? []).filter((v) => v.match_id === id)
+    const top = Math.max(0, ...votes.map((v) => v.votes))
+    for (const v of votes) if (top > 0 && v.votes === top && byId[v.player_id]) mvps.add(byId[v.player_id].name)
+  }
+  return drawNight({ title: currentGroup()?.name ?? t('common.appName'), sub: dayLabel(day), games, scorers, mvps: [...mvps] })
 }
 
 // Loose match: ignores hidden characters, spaces, hyphens and quotes ("בר-לב" = "בר לב", "O'Brien" = "OBrien").
