@@ -1201,3 +1201,7 @@ p { margin: 0; }
 .season-list li { display: flex; align-items: center; gap: 10px; }
 .season-list li .link-btn { margin-inline-start: auto; }
 a.award-line { text-decoration: none; color: inherit; }
+.st-form-row { display: none; }
+html[data-text] .st-name .avatar, html[data-text] .st-name-text .form-dots { display: none; }
+html[data-text] .st-form-row { display: flex; grid-column: 2 / -1; margin-top: -4px; }
+html[data-text] .st-row { grid-template-columns: 1.4rem minmax(0, 1fr) 2rem 3.4rem 1.8rem 1.8rem; gap: 4px; }

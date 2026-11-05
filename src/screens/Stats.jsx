@@ -142,6 +142,8 @@ function StatsBody() {
               <span role="cell" dir="ltr">{s.wins}-{s.draws}-{s.losses}</span>
               <span role="cell">{sort === 'rate' ? (s.games >= 3 ? `${Math.round(s.winRate * 100)}` : '–') : s.goals}</span>
               <span role="cell">{s.assists}</span>
+              {/* With large text the dots get their own line under the row. */}
+              <span className="st-form-row" aria-hidden="true"><FormDots form={s.form} /></span>
             </a>
           ))}
         </div>

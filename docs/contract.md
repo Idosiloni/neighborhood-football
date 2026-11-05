@@ -1,4 +1,4 @@
-# Data contract (schema version 6: group options, match rules, draws, levels)
+# Data contract (schema version 7: group options, match rules, draws, levels, seasons)
 
 The browser app (src/data/supabaseApi.js) and the database (supabase/schema.sql) must agree on this.
 The demo (src/data/mockApi.js) mirrors it in localStorage. Tests: tests/sql.test.js (PGlite).
@@ -64,7 +64,10 @@ Phones listen on channel `g:<group id>` (broadcast, event `change`) and reload.
 
 ## Functions (all `security definer set search_path = ''`, executable by anon and authenticated)
 
-- `schema_version()` → 6 (5: no levels/stars/one-tap; 4: no match rules or draws; 3: no `options`).
+- `schema_version()` → 7 (6: no seasons; 5: no levels/stars/one-tap; 4: no match rules or draws; 3: no `options`).
+- `seasons` (id, group_id, name 1–30, starts_on, unique per group and day): members read, admins insert/update (name,
+  starts_on)/delete. A season runs from its start day until the next one starts; games before the first are "earlier".
+- Reading history: the API returns at most 1000 rows per request, so the app reads it page by page (`allRows`).
 - `set_options(p_patch jsonb) → jsonb` — admins only. Merges the patch into the group's options (null = remove the key,
   back to the default) and keeps every other key. Use this, never a whole-object update.
 - `admin_stars()` / `set_stars(p_player, p_stars)` — admins only: 1–5 stars per player (null removes), in `coach_ratings`
