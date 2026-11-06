@@ -233,7 +233,7 @@ export function createSupabaseApi(url, key) {
     async getSchedule() {
       const g = await this.getGroup()
       // The rules columns, plus the options (format, halves, tie rule, colors…) for the forms and summaries.
-      return g && { ...pickSettings({ ...GAME, ...g }), options: g.options ?? {} }
+      return g && { ...pickSettings({ ...GAME, ...g }), city: g.city ?? null, options: g.options ?? {} }
     },
     async saveSchedule(settings) {
       check(await db.from('groups').update(pickSettings(settings)).eq('id', currentGroup()?.id))

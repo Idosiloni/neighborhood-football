@@ -115,6 +115,8 @@ export default {
   },
 
   me: {
+    theme: 'Look',
+    themes: { auto: 'Like the phone', light: 'Light', dark: 'Dark' },
     textSize: 'Text size',
     textSizes: { normal: 'Normal', large: 'Large', larger: 'Extra large' },
     title: 'Me',

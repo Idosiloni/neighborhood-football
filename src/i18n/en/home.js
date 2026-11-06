@@ -37,6 +37,12 @@ export default {
   podium: 'On the podium',
   manage: 'Manage the group',
 
+  calendar: {
+    add: 'Add to calendar (weekly)',
+    title: '⚽ {group}',
+    details: 'The weekly game. Sign up in the app:',
+    directions: 'Directions to {place}',
+  },
   signup: {
     ask: 'Send "Who\'s coming?" on WhatsApp',
     askHeader: "⚽ Who's coming? {when}",

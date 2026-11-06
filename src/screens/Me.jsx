@@ -17,6 +17,7 @@ import { hasPhoto } from '../lib/photos'
 import { GOAL_SOUNDS, goalSound, preview, setGoalSound, setSoundOn, soundOn } from '../lib/sound'
 import { LOCALES, pickedLocale, setLocale, t } from '../i18n'
 import { setTextSize, TEXT_SIZES, textSize } from '../lib/textSize'
+import { setTheme, THEMES, theme } from '../lib/theme'
 import { useOptions } from '../lib/schedule'
 import Loading from '../components/Loading'
 
@@ -207,11 +208,21 @@ function SoundToggle() {
 
 // The app's language on this phone: automatic (the group's / the phone's), or a fixed one.
 // Picking one re-renders the whole app (App remounts on the locale).
-// Bigger text for anyone who finds it hard to read (per phone).
+// How the app looks on this phone: light or dark, and bigger text for anyone who finds it hard to read.
 function TextSizePicker() {
   const [size, setSize] = useState(textSize)
+  const [look, setLook] = useState(theme)
   return (
     <div className="card stack">
+      <div className="field">
+        {t('onboarding.me.theme')}
+        <div className="chips">
+          {THEMES.map((x) => (
+            <button type="button" key={x} className={look === x ? 'on' : ''} aria-pressed={look === x}
+              onClick={() => { setLook(x); setTheme(x) }}>{t(`onboarding.me.themes.${x}`)}</button>
+          ))}
+        </div>
+      </div>
       <div className="field">
         {t('onboarding.me.textSize')}
         <div className="chips">

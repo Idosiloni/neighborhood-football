@@ -5,9 +5,11 @@ import { registerSW } from 'virtual:pwa-register'
 import './styles.css'
 import { unlockSound } from './lib/sound'
 import { applyTextSize } from './lib/textSize'
+import { applyTheme } from './lib/theme'
 import { followGroupLink } from './lib/identity'
 
 applyTextSize()
+applyTheme()
 followGroupLink()
 
 // A new version takes over and reloads the page by itself (no stale app after an update).

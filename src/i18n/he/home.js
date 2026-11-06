@@ -37,6 +37,12 @@ export default {
   podium: 'על הפודיום',
   manage: 'ניהול הקבוצה',
 
+  calendar: {
+    add: 'ליומן (כל שבוע)',
+    title: '⚽ {group}',
+    details: 'המשחק השבועי. ההרשמה באפליקציה:',
+    directions: 'ניווט אל {place}',
+  },
   signup: {
     ask: 'שליחת "מי בפנים?" בוואטסאפ',
     askHeader: '⚽ מי בפנים? {when}',

@@ -115,6 +115,8 @@ export default {
   },
 
   me: {
+    theme: 'מראה',
+    themes: { auto: 'כמו בטלפון', light: 'בהיר', dark: 'כהה' },
     textSize: 'גודל הטקסט',
     textSizes: { normal: 'רגיל', large: 'גדול', larger: 'גדול מאוד' },
     title: 'אני',

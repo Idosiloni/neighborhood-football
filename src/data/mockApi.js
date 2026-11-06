@@ -487,7 +487,7 @@ export function createMockApi() {
 
     async getSchedule() {
       const g = state.groups.find((x) => x.id === myGroupId())
-      return g ? { ...settingsOf(g), options: g.options ?? {} } : null
+      return g ? { ...settingsOf(g), city: g.city ?? null, options: g.options ?? {} } : null
     },
     async saveSchedule(settings) {
       requireAdmin()

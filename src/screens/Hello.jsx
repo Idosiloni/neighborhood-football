@@ -6,6 +6,7 @@ import { useSchedule } from '../lib/schedule'
 import { go } from '../lib/router'
 import Avatar from '../components/Avatar'
 import InstallHint from '../components/InstallHint'
+import GameLinks from '../components/GameLinks'
 import { rulesSummary } from '../components/GameSettings'
 import { t, tx } from '../i18n'
 import { optionsOf } from '../lib/options'
@@ -43,7 +44,7 @@ export default function Hello() {
       <section className="card stack">
         <span className="muted small">{t('onboarding.hello.next')}</span>
         <p className="big-day">{when}</p>
-        {schedule.venue && <p>📍 {schedule.venue}</p>}
+        <GameLinks day={nextGameDay(new Date(), schedule)} schedule={schedule} groupName={me.group.name} />
         <p className="muted small">{rulesSummary(schedule)}</p>
       </section>
 

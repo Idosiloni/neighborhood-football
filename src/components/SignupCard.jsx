@@ -6,6 +6,7 @@ import { getMyCode } from '../lib/identity'
 import { gameLabel, nextGameDay, today } from '../lib/dates'
 import { useOptions, useSchedule } from '../lib/schedule'
 import Avatar from './Avatar'
+import GameLinks from './GameLinks'
 import { dayName, formatKickoff, shortDate, t } from '../i18n'
 
 // The weekday and short date of a 'YYYY-MM-DD' day, in the current language.
@@ -105,6 +106,7 @@ export default function SignupCard() {
           <b>{list.length}</b>/{full}
         </span>
       </div>
+      <GameLinks day={day} schedule={schedule} groupName={me?.group?.name} />
       <Countdown day={day} kickoff={schedule.kickoff} />
       {/* Above the list, so it stays put when the list grows. */}
       {me ? (
