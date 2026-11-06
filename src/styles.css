@@ -326,15 +326,14 @@ p { margin: 0; }
 .big-day { font-family: var(--display); font-size: 2.4rem; line-height: 1; }
 .signup-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .signup-head h2 { font-size: 1.35rem; }
-/* One row: a long place name is cut short, the calendar button always shows whole. */
-.game-links { display: flex; gap: 6px; }
+/* One row when both fit; otherwise the calendar goes under the place (a very long place is cut short). */
+.game-links { display: flex; flex-wrap: wrap; gap: 6px; }
 .game-link {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; min-width: 0; flex-shrink: 0; padding: 0 12px;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; max-width: 100%; padding: 0 12px;
   border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--text);
   font-size: 0.88rem; font-weight: 600; text-decoration: none;
 }
 .game-link:active { background: var(--grass-soft); border-color: var(--grass); }
-a.game-link { flex-shrink: 1; }
 .game-link-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 button.game-link { white-space: nowrap; }
 .signup-count { font-family: var(--display); font-size: 1.6rem; line-height: 1; color: var(--muted); direction: ltr; }
