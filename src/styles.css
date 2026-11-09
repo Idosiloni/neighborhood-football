@@ -368,8 +368,7 @@ button.game-link { white-space: nowrap; }
 .signup-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .signup-tag { font-size: 0.7rem; background: var(--sunken); border-radius: 4px; padding: 0 6px; }
 .invite-btn { width: 100%; }
-.rank-cta { background: var(--grass); color: #fff; border: 0; box-shadow: 0 3px 0 var(--grass-deep); }
-.rank-cta .muted { color: rgb(255 255 255 / 0.85); }
+.rank-cta { border: 0; }
 
 /* Everyone in the group, swipe sideways. Not yet registered = faded. */
 .roster { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding: 4px 16px 8px; }
