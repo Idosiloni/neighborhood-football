@@ -40,13 +40,13 @@ export default {
   create: {
     title: 'Start a new group',
     sub: "You'll be the admin: invite players, see the rankings and set when you play",
-    steps: ['Name', 'When', 'Rules', 'You'],
+    steps: ['Group', 'You'],
     stepsLabel: 'Steps',
     nameLabel: "What's the group called?",
     namePlaceholder: 'e.g. Friday soccer in the park',
     whenTitle: 'When and where do you play?',
     whenHint: 'Every week on this day a sign-up list opens, and on game day it becomes the list of who showed up.',
-    rulesTitle: 'How do you play?',
+    rulesTitle: 'Game rules and level (the defaults are fine)',
     meTitle: 'And now, about you',
     submit: 'Create the group ⚽',
     errors: {
@@ -172,6 +172,7 @@ export default {
     nickname: 'Nickname for your card (optional)',
     nicknamePlaceholder: 'e.g. The Wall, Turbo, Rocket',
     emoji: 'Emoji (if no photo)',
+    more: 'Nickname and emoji (can wait)',
   },
 
   positions: {

@@ -170,6 +170,7 @@ function JoinWithCode({ joinCode }) {
       <PageHeader title={t('onboarding.join.newTitle')} sub={t('onboarding.join.newSub', { group: data.group.name })} />
       <ProfileForm
         withName
+        compact
         initial={{ name: '', emoji: '⚽', photo: null, position: 'any', can_gk: false, nickname: '' }}
         submitLabel={t('onboarding.join.submit')}
         onSubmit={async (f) => {

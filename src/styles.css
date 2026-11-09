@@ -1409,3 +1409,10 @@ html[data-text] .st-row { grid-template-columns: 1.4rem minmax(0, 1fr) 2rem 3.4r
 /* Home: the call-to-action cards past the first two */
 .more-todo summary { cursor: pointer; padding: 8px 4px; color: var(--grass-text); font-weight: 700; font-size: 0.9rem; }
 .more-todo[open] summary { margin-bottom: 8px; }
+
+/* Optional parts of a form, folded away */
+.more-profile summary { cursor: pointer; padding: 8px 2px; color: var(--grass-text); font-weight: 700; font-size: 0.9rem; }
+.more-profile[open] summary { margin-bottom: 8px; }
+.more-profile > .stack { display: flex; flex-direction: column; gap: 14px; }
+.primary-cta { background: var(--grass); color: #fff; }
+.primary-cta .muted { color: rgb(255 255 255 / 0.85); }

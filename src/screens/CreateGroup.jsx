@@ -55,33 +55,26 @@ export default function CreateGroup() {
             <input className="input" value={groupName} onChange={(e) => setGroupName(e.target.value)}
               placeholder={t('onboarding.create.namePlaceholder')} maxLength={40} autoFocus />
           </label>
+          <h2 className="section-title">{t('onboarding.create.whenTitle')}</h2>
+          <WhenFields value={settings} onChange={setSettings} />
+          <p className="muted small">{t('onboarding.create.whenHint')}</p>
+          <details className="more-profile">
+            <summary>{t('onboarding.create.rulesTitle')}</summary>
+            <div className="stack">
+              <LevelFields value={optionsOf(settings)} onChange={(fields) => setSettings({ ...settings, options: { ...optionsOf(settings), ...fields } })} />
+              <RulesFields value={settings} onChange={setSettings} />
+            </div>
+          </details>
           <button className="btn big" disabled={!groupName.trim()}>{t('common.continue')}</button>
         </form>
       )}
 
       {step === 1 && (
-        <form className="stack" onSubmit={next}>
-          <h2 className="section-title">{t('onboarding.create.whenTitle')}</h2>
-          <WhenFields value={settings} onChange={setSettings} />
-          <p className="muted small">{t('onboarding.create.whenHint')}</p>
-          <StepButtons onBack={() => setStep(0)} />
-        </form>
-      )}
-
-      {step === 2 && (
-        <form className="stack" onSubmit={next}>
-          <h2 className="section-title">{t('onboarding.create.rulesTitle')}</h2>
-          <LevelFields value={optionsOf(settings)} onChange={(fields) => setSettings({ ...settings, options: { ...optionsOf(settings), ...fields } })} />
-          <RulesFields value={settings} onChange={setSettings} />
-          <StepButtons onBack={() => setStep(1)} />
-        </form>
-      )}
-
-      {step === 3 && (
         <>
           <h2 className="section-title">{t('onboarding.create.meTitle')}</h2>
           <ProfileForm
             withName
+            compact
             initial={{ name: '', emoji: '⚽', photo: null, positions: [], nickname: '' }}
             submitLabel={t('onboarding.create.submit')}
             onSubmit={async (f) => {
@@ -100,19 +93,10 @@ export default function CreateGroup() {
               window.scrollTo(0, 0)
             }}
           />
-          <button className="link-btn" onClick={() => setStep(2)}>{t('common.back')}</button>
+          <button className="link-btn" onClick={() => setStep(0)}>{t('common.back')}</button>
         </>
       )}
     </main>
-  )
-}
-
-function StepButtons({ onBack }) {
-  return (
-    <div className="row">
-      <button type="button" className="btn ghost big" onClick={onBack}>{t('common.back')}</button>
-      <button className="btn big">{t('common.continue')}</button>
-    </div>
   )
 }
 

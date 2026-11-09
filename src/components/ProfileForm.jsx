@@ -10,7 +10,7 @@ import { t } from '../i18n'
 // What a player fills in about himself: photo (camera or gallery), nickname, positions.
 // withName: the join screen also asks for his name.
 // photo stays undefined until he picks or removes one: saving then leaves his photo as it is.
-export default function ProfileForm({ initial, withName = false, submitLabel, onSubmit }) {
+export default function ProfileForm({ initial, withName = false, compact = false, submitLabel, onSubmit }) {
   const [p, setP] = useState(() => ({ ...initial, positions: positionsOf(initial) }))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -64,6 +64,30 @@ export default function ProfileForm({ initial, withName = false, submitLabel, on
         </label>
       )}
 
+      {compact ? (
+        <details className="more-profile">
+          <summary>{t('onboarding.profile.more')}</summary>
+          <div className="stack">
+      <label className="field">
+              {t('onboarding.profile.nickname')}
+              <input className="input" value={p.nickname ?? ''} onChange={(e) => set({ nickname: e.target.value })} maxLength={24} placeholder={t('onboarding.profile.nicknamePlaceholder')} />
+            </label>
+
+            {!hasPhoto(p) && (
+              <div className="field">
+                {t('onboarding.profile.emoji')}
+                <div className="emoji-grid emoji-scroll">
+                  {EMOJIS.map((em) => (
+                    <button type="button" key={em} className={p.emoji === em ? 'on' : ''} onClick={() => set({ emoji: em })}>{em}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </div>
+        </details>
+      ) : (
+        <>
       <label className="field">
         {t('onboarding.profile.nickname')}
         <input className="input" value={p.nickname ?? ''} onChange={(e) => set({ nickname: e.target.value })} maxLength={24} placeholder={t('onboarding.profile.nicknamePlaceholder')} />
@@ -78,6 +102,9 @@ export default function ProfileForm({ initial, withName = false, submitLabel, on
             ))}
           </div>
         </div>
+      )}
+
+        </>
       )}
 
       <PositionPicker value={p.positions} onChange={(positions) => set({ positions })} />

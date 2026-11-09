@@ -40,21 +40,15 @@ export default function Welcome({ invalid = false }) {
         <Icon name="forward" />
       </a>
 
-      <a className="card cta-card" href="#/find">
-        <div>
-          <strong>{t('onboarding.welcome.find')}</strong>
-          <p className="muted">{t('onboarding.welcome.findHint')}</p>
-        </div>
-        <Icon name="forward" />
-      </a>
-
-      <a className="card cta-card" href="#/new">
+      <a className="card cta-card primary-cta" href="#/new">
         <div>
           <strong>{t('onboarding.welcome.newGroup')}</strong>
           <p className="muted">{t('onboarding.welcome.newGroupHint')}</p>
         </div>
         <Icon name="forward" />
       </a>
+
+      <a className="link-btn center" href="#/find">{t('onboarding.welcome.find')}</a>
 
       <section className="card stack how-it-works">
         <h2>{t('onboarding.welcome.howTitle')}</h2>
