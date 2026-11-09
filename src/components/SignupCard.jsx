@@ -124,20 +124,29 @@ export default function SignupCard() {
       {list.length === 0 ? (
         <p className="muted">{t('home.signup.empty')}</p>
       ) : (
-        <ol className="signup-list">
-          <AnimatePresence initial={false}>
-          {list.map((p, i) => (
-            <m.li key={p.id} layout initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-              className={`${i >= full ? 'extra' : ''}${me?.id === p.id ? ' me' : ''}`}>
-              <span className="signup-num">{i + 1}</span>
-              <Avatar player={p} size={26} />
-              <span className="signup-name">{p.name}</span>
-              {i === full && <span className="signup-tag">{t('home.signup.waiting')}</span>}
-            </m.li>
-          ))}
-          </AnimatePresence>
-        </ol>
+        <>
+          <div className="signup-faces" aria-hidden="true">
+            {list.slice(0, 8).map((p) => <span key={p.id} className={`avatar-wrap${me?.id === p.id ? ' me' : ''}`}><Avatar player={p} size={38} /></span>)}
+            {list.length > 8 && <span className="more">+{list.length - 8}</span>}
+          </div>
+          <details className="signup-full">
+            <summary>{t('home.signup.fullList', { count: list.length })}</summary>
+          <ol className="signup-list">
+            <AnimatePresence initial={false}>
+            {list.map((p, i) => (
+              <m.li key={p.id} layout initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                className={`${i >= full ? 'extra' : ''}${me?.id === p.id ? ' me' : ''}`}>
+                <span className="signup-num">{i + 1}</span>
+                <Avatar player={p} size={26} />
+                <span className="signup-name">{p.name}</span>
+                {i === full && <span className="signup-tag">{t('home.signup.waiting')}</span>}
+              </m.li>
+            ))}
+            </AnimatePresence>
+          </ol>
+          </details>
+        </>
       )}
 
       {me && data.joinCode && (

@@ -13,6 +13,11 @@ export default {
   },
 
   moreTodo: { one: 'עוד משהו אחד מחכה לך', other: 'עוד {count} דברים מחכים לך' },
+  firstGame: {
+    title: 'לפני המשחק הראשון',
+    invite: 'להזמין לפחות 3 חברים',
+    rank: 'לדרג את השחקנים (פעם אחת, בסוד)',
+  },
   liveNow: 'משחק {num} חי עכשיו',
   mvpAsk: '👑 מי ה-MVP של משחק {num}?',
   mvpText: 'כל מי ששיחק בו מצביע. לוקח שנייה.',
@@ -59,6 +64,7 @@ export default {
     next: 'המשחק הקרוב',
     empty: 'הרשימה עוד ריקה. מי נרשם ראשון?',
     missing: { one: 'חסר שחקן אחד', other: 'חסרים עוד {count}' },
+    fullList: 'הרשימה המלאה ({count})',
     waiting: 'ממתינים',
     in: 'אני בפנים ✋',
     out: 'לא אוכל לבוא',

@@ -86,6 +86,7 @@ export default function Home() {
       lastScore: last ? scoreOf(history.goals.filter((g) => g.match_id === last.id)) : null,
       byId: Object.fromEntries(players.map((p) => [p.id, p])),
       present: attendance.length,
+      finishedCount: history.matches.filter((m) => m.status === 'finished').length,
       played: tonight.filter((m) => m.status === 'finished').length,
       live,
       liveScore: live ? scoreOf(history.goals.filter((g) => g.match_id === live.id)) : null,
@@ -170,10 +171,12 @@ export default function Home() {
 
   return (
     <main className="page home">
-      <header className="hero">
+      <header className="hero compact">
         <div className="hero-pitch" aria-hidden="true" />
-        {groupName ? <h1 className={groupName.length > 12 ? 'long' : ''}>{groupName}</h1> : <h1 className={Math.max(...tl('home.heroTitle').map((l) => l.length)) > 8 ? 'long' : ''}>{tl('home.heroTitle').map((line, i) => <Fragment key={i}>{i > 0 && <br />}{line}</Fragment>)}</h1>}
-        <p>{me ? t('home.hello', { name: me.name }) : t('home.tagline')}</p>
+        <div className="hero-text">
+          {groupName ? <h1 className={groupName.length > 12 ? 'long' : ''}>{groupName}</h1> : <h1 className={Math.max(...tl('home.heroTitle').map((l) => l.length)) > 8 ? 'long' : ''}>{tl('home.heroTitle').map((line, i) => <Fragment key={i}>{i > 0 && ' '}{line}</Fragment>)}</h1>}
+          <p>{me ? t('home.hello', { name: me.name }) : t('home.tagline')}</p>
+        </div>
         <GroupSwitcher label={t('home.myGroups')} className="hero-switch" />
       </header>
 
@@ -208,6 +211,9 @@ export default function Home() {
       )}
 
       {ready && <SignupCard />}
+      {me && ready && view && view.finishedCount === 0 && (
+        <FirstGame inviteDone={view.registered >= 4} rankDone={opts.rating !== 'peers' || Boolean(me.ranking)} showRank={opts.rating === 'peers' && view.roster.length > 2} code={code} />
+      )}
       {me && ready && <NotifyCard compact />}
 
       <AnimatePresence initial={false}>
@@ -319,5 +325,28 @@ export default function Home() {
         </a>
       )}
     </main>
+  )
+}
+
+// Before anything has been played: the few things that get the group ready, ticked as they happen.
+function FirstGame({ inviteDone, rankDone, showRank, code }) {
+  if (inviteDone && (rankDone || !showRank)) return null
+  const item = (done, text, action) => (
+    <li className={done ? 'done' : ''}>
+      {action && !done ? (
+        <button type="button" className="row-link" onClick={action}><span className="tick" aria-hidden="true">{done ? '✓' : ''}</span><span>{text}</span></button>
+      ) : (
+        <><span className="tick" aria-hidden="true">{done ? '✓' : ''}</span><span>{text}</span></>
+      )}
+    </li>
+  )
+  return (
+    <section className="card getready">
+      <h2>{t('home.firstGame.title')}</h2>
+      <ul>
+        {item(inviteDone, t('home.firstGame.invite'), () => document.querySelector('.roster')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))}
+        {showRank && item(rankDone, t('home.firstGame.rank'), () => { window.location.hash = `#/v/${code}` })}
+      </ul>
+    </section>
   )
 }

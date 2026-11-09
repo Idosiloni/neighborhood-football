@@ -13,6 +13,11 @@ export default {
   },
 
   moreTodo: { one: '1 more thing waiting', other: '{count} more things waiting' },
+  firstGame: {
+    title: 'Before the first game',
+    invite: 'Invite at least 3 friends',
+    rank: 'Rank the players (once, in secret)',
+  },
   liveNow: 'Game {num} is live',
   mvpAsk: '👑 Who was the MVP of game {num}?',
   mvpText: 'You played in it, so you get a vote. Takes a second.',
@@ -59,6 +64,7 @@ export default {
     next: 'Next game',
     empty: "Nobody's signed up yet. Who's first?",
     missing: { one: '1 more needed', other: '{count} more needed' },
+    fullList: 'Full list ({count})',
     waiting: 'Waiting list',
     in: "I'm in ✋",
     out: "Can't make it",
