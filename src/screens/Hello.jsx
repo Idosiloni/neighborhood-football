@@ -27,7 +27,8 @@ export default function Hello() {
   const meFull = players.find((p) => p.id === me.id) ?? me
   const others = players.filter((p) => p.active && p.id !== me.id).length
   const { rating } = optionsOf(schedule)
-  const peers = rating === 'peers' || rating === 'attrs'
+  // Ranking only means something once there are a few others to rank (same bar as the home card).
+  const peers = (rating === 'peers' || rating === 'attrs') && others >= 2
   const rankHref = rating === 'attrs' ? '/rate' : `/v/${code}`
   const when = gameLabel(nextGameDay(new Date(), schedule), schedule)
   const step = (n) => tx(`onboarding.hello.step${n}`, { b: <b>{t(`onboarding.hello.step${n}b`)}</b> })
