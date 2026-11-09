@@ -195,6 +195,16 @@ export default function Home() {
         </a>
       )}
 
+      {view?.present > 0 && (
+        <a className="card cta-card tonight-cta" href="#/tonight">
+          <div>
+            <strong>{t('home.tonight')}</strong>
+            <p className="muted">{t('home.tonightNow', { arrived: t('home.arrived', { count: view.present }), games: t('home.games', { count: view.played }) })}</p>
+          </div>
+          <Icon name="forward" />
+        </a>
+      )}
+
       {ready && <SignupCard />}
       {me && ready && <NotifyCard compact />}
 
@@ -207,7 +217,7 @@ export default function Home() {
       )}
 
       {/* Only what the bottom bar doesn't already have: tonight while it's on, and rating. */}
-      {(view?.present > 0 || view?.week || opts.rating === 'attrs' || (opts.rating === 'peers' && !showRankCta)) && (
+      {(view?.week || opts.rating === 'attrs' || (opts.rating === 'peers' && !showRankCta)) && (
         <nav className="quick-links">
           {view?.week && !view.inWeek && (
             <a className="quick-link" href="#/week">
@@ -215,16 +225,6 @@ export default function Home() {
               <span>
                 <strong>{t('stats.week.title')}</strong>
                 <small>{view.week.team.map((r) => view.byId[r.id]?.name).filter(Boolean).slice(0, 3).join(', ')}…</small>
-              </span>
-              <Icon name="forward" size={18} />
-            </a>
-          )}
-          {view?.present > 0 && (
-            <a className="quick-link" href="#/tonight">
-              <Icon name="pitch" size={22} />
-              <span>
-                <strong>{t('home.tonight')}</strong>
-                <small>{t('home.tonightNow', { arrived: t('home.arrived', { count: view.present }), games: t('home.games', { count: view.played }) })}</small>
               </span>
               <Icon name="forward" size={18} />
             </a>

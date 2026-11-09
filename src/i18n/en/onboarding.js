@@ -212,6 +212,8 @@ export default {
     hint: "It's how you get in from another phone. Don't share it with anyone: whoever has it can rank in your name.",
     copy: 'Copy my link',
     copied: '✓ Copied',
+    send: '📨 Send it to myself on WhatsApp',
+    unsaved: "You haven't saved your link yet. Without it you can't get back in as admin from another phone. Tap again to continue anyway.",
   },
 
   install: {

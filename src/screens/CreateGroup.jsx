@@ -102,6 +102,8 @@ export default function CreateGroup() {
 
 // Right after opening: invite the players, and keep the admin link safe.
 function Ready({ code, group, settings }) {
+  const [saved, setSaved] = useState(false)
+  const [warned, setWarned] = useState(false)
   const venue = settings.venue.trim()
   const when = t(venue ? 'onboarding.create.everyAt' : 'onboarding.create.every', {
     day: dayName(settings.weekday),
@@ -121,9 +123,10 @@ function Ready({ code, group, settings }) {
       <InviteCard />
 
       <h2 className="section-title">{t('onboarding.create.linkTitle')}</h2>
-      <MyLink code={code} admin />
+      <MyLink code={code} admin onSaved={() => setSaved(true)} />
 
-      <button className="btn big" onClick={() => openGroup(code)}>{t('onboarding.create.toGroup')}</button>
+      {warned && !saved && <p className="note">{t('onboarding.myLink.unsaved')}</p>}
+      <button className="btn big" onClick={() => (saved || warned ? openGroup(code) : setWarned(true))}>{t('onboarding.create.toGroup')}</button>
       <p className="muted small center">{t('onboarding.create.changeLater')}</p>
     </main>
   )
