@@ -1,4 +1,6 @@
 import { Fragment, useEffect, useMemo } from 'react'
+import { AnimatePresence } from 'motion/react'
+import * as m from 'motion/react-m'
 import { api } from '../data'
 import { useLoad, useLiveUpdates } from '../lib/hooks'
 import { getMyCode } from '../lib/identity'
@@ -208,7 +210,14 @@ export default function Home() {
       {ready && <SignupCard />}
       {me && ready && <NotifyCard compact />}
 
-      {todo.slice(0, 2).map((c) => c.node)}
+      <AnimatePresence initial={false}>
+        {todo.slice(0, 2).map((c, i) => (
+          <m.div key={c.key} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30, delay: i * 0.05 }}>
+            {c.node}
+          </m.div>
+        ))}
+      </AnimatePresence>
       {todo.length > 2 && (
         <details className="more-todo">
           <summary>{t('home.moreTodo', { count: todo.length - 2 })}</summary>

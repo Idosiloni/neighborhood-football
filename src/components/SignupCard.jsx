@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react'
+import { AnimatePresence } from 'motion/react'
+import * as m from 'motion/react-m'
 import { api } from '../data'
 import { useLoad, useLiveUpdates, usePendingToggles, useTicker } from '../lib/hooks'
 import { play } from '../lib/sound'
@@ -104,7 +106,7 @@ export default function SignupCard() {
           {list.length > 0 && list.length < full && <span className="muted small">{t('home.signup.missing', { count: full - list.length })}</span>}
         </div>
         <span className={`signup-count${list.length >= full ? ' full' : ''}`}>
-          <b>{list.length}</b>/{full}
+          <m.b key={list.length} initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 26 }}>{list.length}</m.b>/{full}
         </span>
       </div>
       <GameLinks day={day} schedule={schedule} groupName={me?.group?.name} />
@@ -123,14 +125,18 @@ export default function SignupCard() {
         <p className="muted">{t('home.signup.empty')}</p>
       ) : (
         <ol className="signup-list">
+          <AnimatePresence initial={false}>
           {list.map((p, i) => (
-            <li key={p.id} className={`${i >= full ? 'extra' : ''}${me?.id === p.id ? ' me' : ''}`}>
+            <m.li key={p.id} layout initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+              className={`${i >= full ? 'extra' : ''}${me?.id === p.id ? ' me' : ''}`}>
               <span className="signup-num">{i + 1}</span>
               <Avatar player={p} size={26} />
               <span className="signup-name">{p.name}</span>
               {i === full && <span className="signup-tag">{t('home.signup.waiting')}</span>}
-            </li>
+            </m.li>
           ))}
+          </AnimatePresence>
         </ol>
       )}
 

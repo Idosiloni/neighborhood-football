@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { LazyMotion, MotionConfig } from 'motion/react'
 import App from './App'
 import { registerSW } from 'virtual:pwa-register'
 import './styles.css'
@@ -20,6 +21,11 @@ window.addEventListener('pointerdown', unlockSound, { passive: true })
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    {/* Motion follows the phone's "reduce motion" setting. */}
+    <MotionConfig reducedMotion="user">
+      <LazyMotion features={() => import('./lib/motionFeatures.js').then((m) => m.default)} strict>
+        <App />
+      </LazyMotion>
+    </MotionConfig>
   </StrictMode>,
 )
