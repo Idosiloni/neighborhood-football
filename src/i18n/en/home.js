@@ -12,6 +12,7 @@ export default {
     addMyself: '➕ Add players myself',
   },
 
+  moreTodo: { one: '1 more thing waiting', other: '{count} more things waiting' },
   liveNow: 'Game {num} is live',
   mvpAsk: '👑 Who was the MVP of game {num}?',
   mvpText: 'You played in it, so you get a vote. Takes a second.',
@@ -57,6 +58,7 @@ export default {
     nextToday: "Today's game",
     next: 'Next game',
     empty: "Nobody's signed up yet. Who's first?",
+    missing: { one: '1 more needed', other: '{count} more needed' },
     waiting: 'Waiting list',
     in: "I'm in ✋",
     out: "Can't make it",

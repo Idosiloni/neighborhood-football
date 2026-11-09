@@ -1405,3 +1405,7 @@ html[data-text] .st-row { grid-template-columns: 1.4rem minmax(0, 1fr) 2rem 3.4r
 .rate-chips button { min-width: 2.6rem; }
 .rate-nav { justify-content: space-between; }
 .rate-nav .btn { flex: 1; }
+
+/* Home: the call-to-action cards past the first two */
+.more-todo summary { cursor: pointer; padding: 8px 4px; color: var(--grass-text); font-weight: 700; font-size: 0.9rem; }
+.more-todo[open] summary { margin-bottom: 8px; }

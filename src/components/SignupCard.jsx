@@ -101,6 +101,7 @@ export default function SignupCard() {
         <div>
           <span className="muted small">{isToday ? t('home.signup.nextToday') : t('home.signup.next')}</span>
           <h2>{gameLabel(day, schedule)}</h2>
+          {list.length > 0 && list.length < full && <span className="muted small">{t('home.signup.missing', { count: full - list.length })}</span>}
         </div>
         <span className={`signup-count${list.length >= full ? ' full' : ''}`}>
           <b>{list.length}</b>/{full}

@@ -12,6 +12,7 @@ export default {
     addMyself: '➕ הוספת שחקנים בעצמי',
   },
 
+  moreTodo: { one: 'עוד משהו אחד מחכה לך', other: 'עוד {count} דברים מחכים לך' },
   liveNow: 'משחק {num} חי עכשיו',
   mvpAsk: '👑 מי ה-MVP של משחק {num}?',
   mvpText: 'כל מי ששיחק בו מצביע. לוקח שנייה.',
@@ -57,6 +58,7 @@ export default {
     nextToday: 'המשחק היום',
     next: 'המשחק הקרוב',
     empty: 'הרשימה עוד ריקה. מי נרשם ראשון?',
+    missing: { one: 'חסר שחקן אחד', other: 'חסרים עוד {count}' },
     waiting: 'ממתינים',
     in: 'אני בפנים ✋',
     out: 'לא אוכל לבוא',

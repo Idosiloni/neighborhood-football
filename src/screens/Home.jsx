@@ -99,6 +99,73 @@ export default function Home() {
   const me = data?.me
   const groupName = me?.group?.name
 
+  // What needs me, most important first. Only the top two show; the rest wait under "more".
+  const showRankCta = Boolean(me && ready && opts.rating === 'peers' && !me.ranking && view?.roster?.length > 2)
+  const todo = []
+  if (data?.requests?.length > 0) {
+    todo.push({ key: 'requests', node: (
+      <a key="requests" className="card cta-card" href="#/admin/links">
+        <div><strong>{t('home.push.requests', { count: data.requests.length })}</strong></div>
+        <Icon name="forward" />
+      </a>
+    ) })
+  }
+  if (view?.toVote && opts.mvp) {
+    todo.push({ key: 'mvp', node: (
+      <a key="mvp" className="card cta-card mvp-cta" href={`#/match/${view.toVote.id}`}>
+        <div>
+          <strong>{t('home.mvpAsk', { num: view.toVote.num })}</strong>
+          <p className="muted">{t('home.mvpText')}</p>
+        </div>
+        <Icon name="forward" />
+      </a>
+    ) })
+  }
+  if (view?.upTo) {
+    todo.push({ key: 'up', node: (
+      <a key="up" className={`card cta-card up-cta ${view.upTo}`} href="#/me">
+        <div>
+          <strong>{t('stats.reveal.homeTitle', { tier: t(`stats.tiers.${view.upTo}`) })}</strong>
+          <p className="muted">{t('stats.reveal.homeText')}</p>
+        </div>
+        <Icon name="forward" />
+      </a>
+    ) })
+  }
+  if (showRankCta) {
+    todo.push({ key: 'rank', node: (
+      <a key="rank" className="card cta-card rank-cta" href={`#/v/${code}`}>
+        <div>
+          <strong>{t('home.rankTitle')}</strong>
+          <p className="muted">{t('home.rankText')}</p>
+        </div>
+        <Icon name="forward" />
+      </a>
+    ) })
+  }
+  if (view?.newOnes?.length > 0 && opts.rating === 'peers') {
+    todo.push({ key: 'new', node: (
+      <a key="new" className="card cta-card" href="#/place">
+        <div>
+          <strong>{t('home.newPlayers', { count: view.newOnes.length, name: view.newOnes[0].name })}</strong>
+          <p className="muted">{t('home.newPlayersText', { count: view.newOnes.length, name: view.newOnes[0].name })}</p>
+        </div>
+        <Icon name="forward" />
+      </a>
+    ) })
+  }
+  if (view?.inWeek) {
+    todo.push({ key: 'week', node: (
+      <a key="week" className="card cta-card week-you" href="#/week">
+        <div>
+          <strong>{t('stats.week.youAreIn')}</strong>
+          <p className="muted">{t('stats.week.youAreInText')}</p>
+        </div>
+        <Icon name="forward" />
+      </a>
+    ) })
+  }
+
   return (
     <main className="page home">
       <header className="hero">
@@ -131,65 +198,16 @@ export default function Home() {
       {ready && <SignupCard />}
       {me && ready && <NotifyCard compact />}
 
-      {view?.toVote && opts.mvp && (
-        <a className="card cta-card mvp-cta" href={`#/match/${view.toVote.id}`}>
-          <div>
-            <strong>{t('home.mvpAsk', { num: view.toVote.num })}</strong>
-            <p className="muted">{t('home.mvpText')}</p>
-          </div>
-          <Icon name="forward" />
-        </a>
-      )}
-
-      {data?.requests?.length > 0 && (
-        <a className="card cta-card" href="#/admin/links">
-          <div><strong>{t('home.push.requests', { count: data.requests.length })}</strong></div>
-          <Icon name="forward" />
-        </a>
-      )}
-
-      {view?.upTo && (
-        <a className={`card cta-card up-cta ${view.upTo}`} href="#/me">
-          <div>
-            <strong>{t('stats.reveal.homeTitle', { tier: t(`stats.tiers.${view.upTo}`) })}</strong>
-            <p className="muted">{t('stats.reveal.homeText')}</p>
-          </div>
-          <Icon name="forward" />
-        </a>
-      )}
-
-      {view?.inWeek && (
-        <a className="card cta-card week-you" href="#/week">
-          <div>
-            <strong>{t('stats.week.youAreIn')}</strong>
-            <p className="muted">{t('stats.week.youAreInText')}</p>
-          </div>
-          <Icon name="forward" />
-        </a>
-      )}
-
-      {view?.newOnes?.length > 0 && opts.rating === 'peers' && (
-        <a className="card cta-card" href="#/place">
-          <div>
-            <strong>{t('home.newPlayers', { count: view.newOnes.length, name: view.newOnes[0].name })}</strong>
-            <p className="muted">{t('home.newPlayersText', { count: view.newOnes.length, name: view.newOnes[0].name })}</p>
-          </div>
-          <Icon name="forward" />
-        </a>
-      )}
-
-      {me && ready && opts.rating === 'peers' && !me.ranking && view?.roster?.length > 2 && (
-        <a className="card cta-card rank-cta" href={`#/v/${code}`}>
-          <div>
-            <strong>{t('home.rankTitle')}</strong>
-            <p className="muted">{t('home.rankText')}</p>
-          </div>
-          <Icon name="forward" />
-        </a>
+      {todo.slice(0, 2).map((c) => c.node)}
+      {todo.length > 2 && (
+        <details className="more-todo">
+          <summary>{t('home.moreTodo', { count: todo.length - 2 })}</summary>
+          <div className="stack">{todo.slice(2).map((c) => c.node)}</div>
+        </details>
       )}
 
       {/* Only what the bottom bar doesn't already have: tonight while it's on, and rating. */}
-      {(view?.present > 0 || view?.week || opts.rating === 'attrs' || opts.rating === 'peers') && (
+      {(view?.present > 0 || view?.week || opts.rating === 'attrs' || (opts.rating === 'peers' && !showRankCta)) && (
         <nav className="quick-links">
           {view?.week && !view.inWeek && (
             <a className="quick-link" href="#/week">
@@ -221,7 +239,7 @@ export default function Home() {
               <Icon name="forward" size={18} />
             </a>
           )}
-          {opts.rating === 'peers' && (
+          {opts.rating === 'peers' && !showRankCta && (
             <a className="quick-link" href={code ? `#/v/${code}` : '#/vote'}>
               <span className="quick-emoji" aria-hidden="true">🗳️</span>
               <span>
